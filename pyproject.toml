@@ -4,10 +4,19 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "mazegenerator"
+]
 
 [dependency-groups]
 dev = [
     "flake8>=7.3.0",
     "mypy>=2.1.0",
 ]
+
+[[tool.mypy.overrides]]
+module = "mazegenerator"
+ignore_missing_imports = true
+
+[tool.uv.sources]
+mazegenerator = { path = "wheel/mazegenerator-00001-py3-none-any.whl" }

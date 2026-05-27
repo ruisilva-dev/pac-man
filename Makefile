@@ -1,3 +1,5 @@
+export UV_SKIP_WHEEL_FILENAME_CHECK=1
+
 install:
 	@uv sync
 
