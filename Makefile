@@ -2,10 +2,10 @@ install:
 	@uv sync
 
 run:
-	@uv run python3 pac-man.py
+	@uv run python3 pac-man.py config.json
 
 debug:
-	@uv run python3 -m pdb pac-man.py
+	@uv run python3 -m pdb pac-man.py config.json
 
 lint:
 	uv run flake8 .
