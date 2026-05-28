@@ -8,4 +8,12 @@ This document tracks the explicit design decisions made during development.
 
 ## 2. Environment Variable Injection via Makefile
 * **Choice:** Adding `export UV_SKIP_WHEEL_FILENAME_CHECK=1` directly into the `Makefile`.
-* **Rationale:** Fulfills Chapter V.4's rule to use the assigned library without modifying the wheel, ensuring the project builds on any environment via `make install` automatically.
+* **Rationale:** Fulfills the requirement to use the assigned library without modifying the wheel, ensuring the project builds on any environment via `make install` automatically.
+
+## 3. Graphics Framework Selection
+* **Choice:** Pygame Library.
+* **Rationale:** Selected to fulfill the Chapter IV mandate for a simple graphical library. It provides native support for 2D primitive geometry rendering, window state management, and real-time event loops required to construct a responsive interactive user interface.
+
+## 4. Physics and Simulation Timing Architecture
+* **Choice:** Frame-independent Delta-Time (`dt`) grid interpolation.
+* **Rationale:** Instead of locking coordinate updates directly to the hardware frame rate, the core simulation scales position changes smoothly based on elapsed seconds using fractional cell progress interpolation. This guarantees that entities travel at uniform physical velocities across any monitor refresh rate.

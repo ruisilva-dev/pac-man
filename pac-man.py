@@ -1,5 +1,6 @@
 import sys
 from pacman.engine import PacmanEngine
+from pacman.game import Game
 
 
 def main() -> None:
@@ -7,19 +8,16 @@ def main() -> None:
     if len(sys.argv) < 2:
         sys.exit("Error: Please provide a config.json file.")
 
-    # Instantiate the backend simulation engine using the user's config file
     engine: PacmanEngine = PacmanEngine(sys.argv[1])
 
     print("Engine Initialized Successfully!")
     print(f"Initial Score: {engine.score} | Initial Lives: {engine.lives}")
     print("-" * 50)
-    print("Displaying Level 1 Grid Bitwise Encodings:")
+    print("Launching graphical game user interface window view...")
     print("-" * 50)
 
-    # Iterative test printer for the map layout
-    for row in engine.grid:
-        # Align integers cleanly so columns match symmetrically in the console
-        print(" ".join(f"{cell:2d}" for cell in row))
+    game: Game = Game(engine)
+    game.run()
 
 
 if __name__ == "__main__":
