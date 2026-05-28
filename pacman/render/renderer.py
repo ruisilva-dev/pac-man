@@ -13,6 +13,9 @@ WALL_THICKNESS: int = 6
 WALL_OFFSET: int = WALL_THICKNESS // 2
 CORNERS: int = WALL_OFFSET - 1
 
+# Structural sprite dimensions
+SPRITE_OFFSET: int = WALL_OFFSET + 1
+
 # Color definitions
 WALL_COLOR: tuple[int, int, int] = (33, 33, 255)
 BG_COLOR: tuple[int, int, int] = (0, 0, 0)
@@ -198,7 +201,8 @@ class GameRenderer:
                     pygame.Rect(i * 20, 0, 20, 20)
                 )
                 scaled: pygame.Surface = pygame.transform.scale(
-                    frame, (CELL_SIZE, CELL_SIZE)
+                    frame, (CELL_SIZE - WALL_THICKNESS,
+                            CELL_SIZE - WALL_THICKNESS)
                 )
                 frames.append(scaled)
             self.pac_sprites[direction] = frames
@@ -215,8 +219,8 @@ class GameRenderer:
         next_row: int = max(0, min(self.rows - 1, row + dr))
         x_end, y_end = self.cell_pos(next_col, next_row)
 
-        x: int = int(x_start + (x_end - x_start) * progress)
-        y: int = int(y_start + (y_end - y_start) * progress)
+        x: int = int(x_start + (x_end - x_start) * progress) + SPRITE_OFFSET
+        y: int = int(y_start + (y_end - y_start) * progress) + SPRITE_OFFSET
 
         frame: pygame.Surface = (
             self.pac_sprites
