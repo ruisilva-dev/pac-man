@@ -17,3 +17,7 @@ This document tracks the explicit design decisions made during development.
 ## 4. Physics and Simulation Timing Architecture
 * **Choice:** Frame-independent Delta-Time (`dt`) grid interpolation.
 * **Rationale:** Instead of locking coordinate updates directly to the hardware frame rate, the core simulation scales position changes smoothly based on elapsed seconds using fractional cell progress interpolation. This guarantees that entities travel at uniform physical velocities across any monitor refresh rate.
+
+## 5. Configuration Parsing Strategy
+* **Choice:** Reflective Dataclass Schema Factory.
+* **Rationale:** Avoids cascading conditional boilerplate blocks while remaining 100% compliant under `mypy --strict` rules. It dynamically validates incoming types using native fields inspection, ensuring smooth scalability when adding new game parameters.

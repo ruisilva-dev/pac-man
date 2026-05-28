@@ -6,5 +6,6 @@
 | 🟢 | Define initial engine contract with MazeGenerator integration | Both | 27/05/2026 | 27/05/2026 | Simple grid/coordinate setup. |
 | 🟢 | Initialize core project management suite | Both | 27/05/2026 | 27/05/2026 | Created team.md and choices.md. |
 | 🟢 | Build Pygame rendering loop & smooth cell interpolation | luida-cu | 29/05/2026 | 28/05/2026 | Graphical window shell and input buffers are fully integrated with zero strict typing errors. |
+| 🟢 | Implement robust reflective configuration factory | ruisilva | 29/05/2026 | 28/05/2026 | Added comment-stripping filter, explicit type verification, and edge-case bounds clamping. |
 
 *Status Legend: ⚪ Not Started | 🟡 In Progress | 🟢 Completed*

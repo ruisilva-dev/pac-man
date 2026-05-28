@@ -1,4 +1,5 @@
 from mazegenerator import MazeGenerator
+from pacman.config import Configuration
 
 # Pac-Man velocity (cells per second)
 PAC_SPEED: float = 5.0
@@ -62,20 +63,19 @@ class PacmanEngine:
             animation frames.
     """
 
-    def __init__(self, config_path: str) -> None:
+    def __init__(self, config: Configuration) -> None:
         """Initializes a new game logic session with safe initial states.
 
         Args:
             config_path: Designated path to the source configuration asset.
         """
-        self.config_path: str = config_path
         self.score: int = 0
-        self.lives: int = 3
+        self.lives: int = config.lives
 
         generator: MazeGenerator = MazeGenerator(
             size=(15, 15),
             perfect=False,
-            seed=42
+            seed=config.seed
         )
 
         self.grid: list[list[int]] = generator.maze
