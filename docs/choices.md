@@ -21,3 +21,7 @@ This document tracks the explicit design decisions made during development.
 ## 5. Configuration Parsing Strategy
 * **Choice:** Reflective Dataclass Schema Factory.
 * **Rationale:** Avoids cascading conditional boilerplate blocks while remaining 100% compliant under `mypy --strict` rules. It dynamically validates incoming types using native fields inspection, ensuring smooth scalability when adding new game parameters.
+
+## 6. Highscore Data Persistence & Overwrite Protection
+* **Choice:** Absolute path resolution shielding with dynamic environment isolation via `sys.prefix`.
+* **Rationale:** Prevents runtime data persistence loops from corrupting critical game assets or user configurations. By evaluating paths at runtime using full system resolution instead of brittle hardcoded blacklists, the manager blocks malicious or accidental source code directory overwrites while handling variable virtual environment configurations seamlessly.
