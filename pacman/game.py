@@ -1,6 +1,6 @@
 import pygame
 from pacman.engine import PacmanEngine
-from pacman.render.renderer import GameRenderer, FPS, BG_COLOR
+from pacman.render.renderer import GameRenderer, FPS
 
 
 class Game:
@@ -19,6 +19,7 @@ class Game:
         Args:
             engine: Shared reference to the central backend logic driver.
         """
+        pygame.init()
         self.engine: PacmanEngine = engine
         self.renderer: GameRenderer = GameRenderer(engine)
         self.clock: pygame.time.Clock = pygame.time.Clock()
@@ -53,7 +54,6 @@ class Game:
             dt: float = self.clock.tick(FPS) / 1000.0
             self._handle_events()
             self.engine.update(dt)
-            self.renderer.screen.fill(BG_COLOR)
             self.renderer.draw_grid()
             self.renderer.draw_pacman()
             pygame.display.flip()
