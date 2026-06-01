@@ -12,12 +12,14 @@ class Configuration:
         lives: Total starting attempts allocated to the player instance.
         seed: The deterministic seed value used for initial maze generation.
         points_per_pacgum: Score point yield per standard pacgum consumed.
+        points_per_super_pacgum: Score point yield per super pacgum consumed.
     """
 
-    highscore_filename: str = "highscore_filename"
+    highscore_filename: str = "highscore.json"
     lives: int = 3
     seed: int = 42
     points_per_pacgum: int = 10
+    points_per_super_pacgum: int = 50
 
     @classmethod
     def load(cls, config_path: str) -> "Configuration":

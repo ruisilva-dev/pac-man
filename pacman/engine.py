@@ -1,5 +1,6 @@
 from mazegenerator import MazeGenerator
 from pacman.config import Configuration
+from pacman.items import Consumable, Pacgum, SuperPacgum
 
 # Pac-Man velocity (cells per second)
 PAC_SPEED: float = 5.0
@@ -44,7 +45,7 @@ class PacmanEngine:
     independently of any active front-end graphical visualization loops.
 
     Attributes:
-        config_path: The file system location of the game configuration.
+        config: The configuration state instance reference mapping bounds.
         score: Aggregated game points earned by the player instance.
         lives: Remainder tracking tally for player survival attempts.
         grid: Two-dimensional matrix representing active map cell encodings.
@@ -61,14 +62,16 @@ class PacmanEngine:
         pac_anim_index: Current visual frame animation index offset.
         pac_anim_timer: Elapsed delta accumulator scaling game
             animation frames.
+        items: Two-dimensional layout matrix tracking active collectibles.
     """
 
     def __init__(self, config: Configuration) -> None:
         """Initializes a new game logic session with safe initial states.
 
         Args:
-            config_path: Designated path to the source configuration asset.
+            config: Fully loaded game initialization options container.
         """
+        self.config: Configuration = config
         self.score: int = 0
         self.lives: int = config.lives
 
@@ -96,6 +99,39 @@ class PacmanEngine:
         self.pac_move_progress: float = 0.0
         self.pac_anim_index: int = 0
         self.pac_anim_timer: float = 0.0
+
+        # Initialize the item layout matrix to track active collectibles
+        self.items: list[list[Consumable | None]] = [
+            [
+                Pacgum(self.config.points_per_pacgum) if val < 15 else None
+                for val in row
+            ]
+            for row in self.grid
+        ]
+        self.items[self.pac_row][self.pac_col] = None
+
+        # Maze corner mapping: (start_row, start_col, r_step, c_step)
+        corners_config: list[tuple[int, int, int, int]] = [
+            (0, 0, 1, 1),
+            (0, self.grid_cols - 1, 1, -1),
+            (self.grid_rows - 1, 0, -1, 1),
+            (self.grid_rows - 1, self.grid_cols - 1, -1, -1)
+        ]
+
+        for s_row, s_col, r_step, c_step in corners_config:
+            r, c = s_row, s_col
+            while (
+                0 <= r < self.grid_rows
+                and 0 <= c < self.grid_cols
+                and self.grid[r][c] == 15
+            ):
+                r += r_step
+                c += c_step
+
+            if 0 <= r < self.grid_rows and 0 <= c < self.grid_cols:
+                self.items[r][c] = SuperPacgum(
+                    self.config.points_per_super_pacgum
+                )
 
     def _can_move(self, col: int, row: int, direction: str) -> bool:
         """Verifies if path progression can occur from a matrix point.
@@ -168,6 +204,12 @@ class PacmanEngine:
             dc, dr = DIRECTION_DELTAS[self.pac_dir]
             self.pac_col += dc
             self.pac_row += dr
+
+            # Pull the pacgum, increase score, delete reference
+            item = self.items[self.pac_row][self.pac_col]
+            if item is not None:
+                item.on_consume(self)
+                self.items[self.pac_row][self.pac_col] = None
 
     def update(self, dt: float) -> None:
         """Advances active simulation mechanics processing loops.

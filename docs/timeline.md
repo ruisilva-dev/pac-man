@@ -9,5 +9,6 @@
 | 🟢 | Implement robust reflective configuration factory | ruisilva | 29/05/2026 | 28/05/2026 | Added comment-stripping filter, explicit type verification, and edge-case bounds clamping. |
 | 🟢 | Optimized Pygame rendering loop & Implemented Maze Sprites | luida-cu | 30/05/2026 | 29/05/2026 | Render Loop Optimized by pre-rendering fixed objects and maze sprite-tiles fully implemented. |
 | 🟢 | Implement robust highscore manager | ruisilva | 30/05/2026 | 29/05/2026 | Built path-sanitization guards, custom fallback shield and criteria validation filters. |
+| 🟢 | Implement polymorphic item system & engine placement hooks | ruisilva | 30/05/2026 | 30/05/2026 | Built items.py using abstract class hooks; integrated grid-spawn and evaluation triggers in engine. |
 
 *Status Legend: ⚪ Not Started | 🟡 In Progress | 🟢 Completed*

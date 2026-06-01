@@ -25,3 +25,7 @@ This document tracks the explicit design decisions made during development.
 ## 6. Highscore Data Persistence & Overwrite Protection
 * **Choice:** Absolute path resolution shielding with dynamic environment isolation via `sys.prefix`.
 * **Rationale:** Prevents runtime data persistence loops from corrupting critical game assets or user configurations. By evaluating paths at runtime using full system resolution instead of brittle hardcoded blacklists, the manager blocks malicious or accidental source code directory overwrites while handling variable virtual environment configurations seamlessly.
+
+## 7. Polymorphic Item Consumption Architecture
+* **Choice:** Abstract Base Class (`Consumable`) using template method hooks (`on_consume`).
+* **Rationale:** Decouples the engine's movement grid from specific item logic. By allowing objects like `Pacgum` and `SuperPacgum` to define their own execution behavior when eaten, the engine can blindly trigger `.on_consume(self)` without running clumsy type-checking conditionals (`isinstance`) across different collectible variants.
