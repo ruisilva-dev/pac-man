@@ -1,40 +1,15 @@
 from mazegenerator import MazeGenerator
 from pacman.config import Configuration
 from pacman.items import Consumable, Pacgum, SuperPacgum
-
-# Pac-Man velocity (cells per second)
-PAC_SPEED: float = 5.0
-
-# Animation frame duration parameters
-PAC_ANIM_SPEED: float = 10.0
-PAC_ANIM_FRAMES: int = 3
-
-# Inversion map to calculate sharp velocity direction switches
-OPPOSITE_DIR: dict[str, str] = {
-    'N': 'S',
-    'S': 'N',
-    'E': 'W',
-    'W': 'E',
-}
-
-# Input buffer tracking expiration window
-PAC_INPUT_BUFFER: float = 0.4
-
-# Positional transformation deltas mapped by orientation index
-DIRECTION_DELTAS: dict[str, tuple[int, int]] = {
-    'N': (0, -1),
-    'S': (0, 1),
-    'E': (1, 0),
-    'W': (-1, 0),
-}
-
-# Bitwise wall encoding lookup table matching cell layout flags
-DIRECTION_BITS: dict[str, int] = {
-    'N': 1,
-    'S': 4,
-    'E': 2,
-    'W': 8,
-}
+from pacman.ghosts import Ghost
+from pacman.constants import (
+    PAC_SPEED,
+    OPPOSITE_DIR,
+    PAC_INPUT_BUFFER,
+    PAC_RESPAWN_PAUSE,
+    DIRECTION_DELTAS,
+    DIRECTION_BITS,
+)
 
 
 class PacmanEngine:
@@ -59,9 +34,6 @@ class PacmanEngine:
             buffered input.
         pac_move_progress: Interpolation progress float bounded between
             0.0 and 1.0.
-        pac_anim_index: Current visual frame animation index offset.
-        pac_anim_timer: Elapsed delta accumulator scaling game
-            animation frames.
         items: Two-dimensional layout matrix tracking active collectibles.
     """
 
@@ -90,16 +62,20 @@ class PacmanEngine:
         # Establish starting coordinate slots within central safe pathways
         posy: int = (self.grid_rows - 5) // 2
         posx: int = (self.grid_cols - 7) // 2
-        self.pac_col: int = posx + 3
-        self.pac_row: int = posy + 2
+        self.pac_home_col: int = posx + 3
+        self.pac_home_row: int = posy + 2
+
+        self.pac_col: int = self.pac_home_col
+        self.pac_row: int = self.pac_home_row
 
         self.pac_dir: str = 'E'
         self.pac_next_dir: str = self.pac_dir
         self.pac_next_dir_timer: float = 0.0
         self.pac_move_progress: float = 0.0
-        self.pac_anim_index: int = 0
-        self.pac_anim_timer: float = 0.0
-
+        # Establishes if pacman is dead or alive
+        self.pac_dying: bool = False
+        # Pause before re-spawning
+        self.respawn_pause_timer: float = 0.0
         # Initialize the item layout matrix to track active collectibles
         self.items: list[list[Consumable | None]] = [
             [
@@ -133,19 +109,22 @@ class PacmanEngine:
                     self.config.points_per_super_pacgum
                 )
 
-    def _can_move(self, col: int, row: int, direction: str) -> bool:
-        """Verifies if path progression can occur from a matrix point.
+        max_c = self.grid_cols - 1
+        max_r = self.grid_rows - 1
 
-        Args:
-            col: Target column index array identifier.
-            row: Target row index array identifier.
-            direction: Character key representing candidate direction.
-
-        Returns:
-            True if movement is unblocked; False if a wall exists.
-        """
-        bit: int = DIRECTION_BITS[direction]
-        return not (self.grid[row][col] & bit)
+        self.ghosts: list[Ghost] = [
+            Ghost(0, 0, 0, 0, 0, self.get_start_dir(0, 0)),
+            Ghost(max_c, 0, max_c, 0, 1, self.get_start_dir(max_c, 0)),
+            Ghost(0, max_r, 0, max_r, 2, self.get_start_dir(0, max_r)),
+            Ghost(
+                max_c,
+                max_r,
+                max_c,
+                max_r,
+                3,
+                self.get_start_dir(max_c, max_r)
+            )
+        ]
 
     def _update_pacman(self, dt: float) -> None:
         """Updates player mechanics, coordinate values, and vector timers.
@@ -162,16 +141,8 @@ class PacmanEngine:
         else:
             self.pac_next_dir_timer = 0.0
 
-        # Progress visual animation cycles
-        self.pac_anim_timer += dt * PAC_ANIM_SPEED
-        if self.pac_anim_timer >= 1.0:
-            self.pac_anim_timer -= 1.0
-            self.pac_anim_index = (
-                (self.pac_anim_index + 1) % PAC_ANIM_FRAMES
-            )
-
         # Attempt application of keyboard directional inputs
-        if self._can_move(
+        if self.can_move(
             self.pac_col, self.pac_row, self.pac_next_dir
         ):
             is_opposite: bool = (
@@ -191,7 +162,7 @@ class PacmanEngine:
                 self.pac_dir = self.pac_next_dir
 
         # Halt sequence instantly if a wall stops forward progression
-        if not self._can_move(self.pac_col, self.pac_row, self.pac_dir):
+        if not self.can_move(self.pac_col, self.pac_row, self.pac_dir):
             self.pac_move_progress = 0.0
             return
 
@@ -211,10 +182,90 @@ class PacmanEngine:
                 item.on_consume(self)
                 self.items[self.pac_row][self.pac_col] = None
 
+    def _check_collisions(self) -> None:
+        """Checks ghost collisions, triggering death or ghost consumption."""
+        for ghost in self.ghosts:
+            if ghost.col == self.pac_col and ghost.row == self.pac_row:
+                if ghost.state == "CHASE":
+                    # If caught by ghost marks pacman as dieing
+                    self.pac_dying = True
+                    return
+
+                elif ghost.state == "FRIGHTENED":
+                    self.score += self.config.points_per_ghost
+                    ghost.state = "EATEN"
+                    ghost.state_timer = 5.0
+
+    def get_start_dir(self, col: int, row: int) -> str:
+        """Dynamically detects open map corridor from a starting matrix cell.
+
+        Args:
+            col: Starting X-axis grid coordinate.
+            row: Starting Y-axis grid coordinate.
+
+        Returns:
+            A valid cardinal direction character ('N', 'S', 'E', 'W').
+        """
+        for direction in ['E', 'W', 'S', 'N']:
+            if self.can_move(col, row, direction):
+                return direction
+        return 'N'  # Fallback
+
+    def finish_death(self) -> None:
+        """Resets Pacman to its respawn point and decrements 1 life"""
+        # Reset pac-man state
+        self.lives -= 1
+        self.pac_dying = False
+        self.pac_col = self.pac_home_col
+        self.pac_row = self.pac_home_row
+        self.pac_dir = 'E'
+        self.pac_next_dir = self.pac_dir
+        self.pac_next_dir_timer = 0.0
+        self.pac_move_progress = 0.0
+
+        for ghost in self.ghosts:
+            ghost.reset()
+
+        self.respawn_pause_timer = PAC_RESPAWN_PAUSE
+
+    def can_move(self, col: int, row: int, direction: str) -> bool:
+        """Verifies if path progression can occur from a matrix point.
+
+        Args:
+            col: Target column index array identifier.
+            row: Target row index array identifier.
+            direction: Character key representing candidate direction.
+
+        Returns:
+            True if movement is unblocked; False if a wall exists.
+        """
+        bit: int = DIRECTION_BITS[direction]
+        return not (self.grid[row][col] & bit)
+
     def update(self, dt: float) -> None:
         """Advances active simulation mechanics processing loops.
 
         Args:
             dt: Delta time tracking in seconds since last frame pass.
         """
+        if self.pac_dying:
+            return
+        if self.respawn_pause_timer > 0.0:
+            self.respawn_pause_timer -= dt
+            return
+
         self._update_pacman(dt)
+
+        # Tick all ghost routing lookahead cycles forward
+        for ghost in self.ghosts:
+            ghost.update(dt, self)
+
+        # Check if a grid collision boundary has been tripped
+        self._check_collisions()
+
+    def activate_frightened_mode(self) -> None:
+        """Flips all active ghost states to vulnerable mode."""
+        for ghost in self.ghosts:
+            if ghost.state != "EATEN":
+                ghost.state = "FRIGHTENED"
+                ghost.state_timer = 10.0

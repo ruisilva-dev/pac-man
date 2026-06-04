@@ -52,3 +52,4 @@ class SuperPacgum(Pacgum):
             engine: Shared reference to the central game logic driver.
         """
         super().on_consume(engine)
+        engine.activate_frightened_mode()

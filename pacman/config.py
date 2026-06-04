@@ -20,6 +20,7 @@ class Configuration:
     seed: int = 42
     points_per_pacgum: int = 10
     points_per_super_pacgum: int = 50
+    points_per_ghost: int = 200
 
     @classmethod
     def load(cls, config_path: str) -> "Configuration":

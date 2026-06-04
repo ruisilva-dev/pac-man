@@ -1,6 +1,7 @@
 import pygame
 from pacman.engine import PacmanEngine
-from pacman.render.renderer import GameRenderer, FPS
+from pacman.render.renderer import GameRenderer
+from pacman.constants import FPS
 
 
 class Game:
@@ -24,6 +25,7 @@ class Game:
         self.renderer: GameRenderer = GameRenderer(engine)
         self.clock: pygame.time.Clock = pygame.time.Clock()
         self.running: bool = False
+        self._death_started: bool = False
 
     def _handle_events(self) -> None:
         """Intercepts hardware interactions and schedules updates."""
@@ -53,9 +55,24 @@ class Game:
         while self.running:
             dt: float = self.clock.tick(FPS) / 1000.0
             self._handle_events()
-            self.engine.update(dt)
-            self.renderer.draw_grid()
-            self.renderer.draw_pacman()
+
+            if self.engine.pac_dying:
+                if not self._death_started:
+                    self.renderer.start_death()
+                    self._death_started = True
+                self.renderer.draw_grid()
+                self.renderer.draw_items(0.0)
+                self.renderer.draw_ghosts(0.0)
+                self.renderer.draw_death(dt)
+                self.renderer.draw_hud()
+            else:
+                self._death_started = False
+                self.engine.update(dt)
+                self.renderer.draw_grid()
+                self.renderer.draw_items(dt)
+                self.renderer.draw_ghosts(dt)
+                self.renderer.draw_pacman(dt)
+                self.renderer.draw_hud()
             pygame.display.flip()
 
         pygame.quit()
