@@ -10,5 +10,9 @@
 | 🟢 | Optimized Pygame rendering loop & Implemented Maze Sprites | luida-cu | 30/05/2026 | 29/05/2026 | Render Loop Optimized by pre-rendering fixed objects and maze sprite-tiles fully implemented. |
 | 🟢 | Implement robust highscore manager | ruisilva | 30/05/2026 | 29/05/2026 | Built path-sanitization guards, custom fallback shield and criteria validation filters. |
 | 🟢 | Implement polymorphic item system & engine placement hooks | ruisilva | 30/05/2026 | 30/05/2026 | Built items.py using abstract class hooks; integrated grid-spawn and evaluation triggers in engine. |
+| 🟢 | Integrate ghost, item, and death sprites | luida-cu | 02/06/2026 | 02/06/2026 | Assets loaded for classic theme. |
+| 🟢 | Centralize physics and rendering constraints | Both | 02/06/2026 | 02/06/2026 | Extracted hardcoded variables into constants.py to decouple dependencies. |
+| 🟢 | Implement ghost AI, BFS pathfinding, and behaviors | ruisilva | 03/06/2026 | 04/06/2026 | Added class profiles (Blinky, Pinky, Inky, Clyde). Delayed 1 day to refactor ghost respawn logic, ensuring travel speeds sync perfectly with the strict 5-second penalty. |
+| 🟢 | Integrate collision states, death sequences, and HUD | Both | 04/06/2026 | 04/06/2026 | Engine handles grid boundaries, ghost rendering, and frightened triggers. |
 
 *Status Legend: ⚪ Not Started | 🟡 In Progress | 🟢 Completed*
