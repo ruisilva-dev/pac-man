@@ -1,0 +1,110 @@
+from typing import TYPE_CHECKING
+import pygame
+from pacman.scenes.base import Scene
+from pacman.constants import ARCADE_W, ARCADE_H, BG_COLOR
+
+if TYPE_CHECKING:
+    from pacman.game import Game
+
+TITLE_COLOR: tuple[int, int, int] = (255, 255, 0)
+LABEL_COLOR: tuple[int, int, int] = (255, 255, 255)
+VALUE_COLOR: tuple[int, int, int] = (255, 255, 0)
+HINT_COLOR: tuple[int, int, int] = (180, 180, 180)
+
+# Themes selectable from the options screen
+AVAILABLE_THEMES: list[str] = ["classic", "japan"]
+
+
+class OptionsScene(Scene):
+    """Lets the player cycle the active theme.
+
+    Changing the theme updates the shared configuration so subsequent
+    gameplay scenes load the chosen theme.
+
+    Attributes:
+        game: Back-reference to the coordinating Game.
+        theme_index: Index into AVAILABLE_THEMES for the current theme.
+        title_font: Font for the heading.
+        item_font: Font for the option rows.
+        hint_font: Font for the navigation hint.
+    """
+
+    def __init__(self, game: "Game") -> None:
+        """Initializes the options screen at the current theme.
+
+        Args:
+            game: The coordinating Game instance.
+        """
+        super().__init__(game)
+        current = game.config.theme
+        self.theme_index: int = (
+            AVAILABLE_THEMES.index(current)
+            if current in AVAILABLE_THEMES else 0
+        )
+        self.title_font: pygame.font.Font = pygame.font.SysFont(
+            "monospace", 56, bold=True
+        )
+        self.item_font: pygame.font.Font = pygame.font.SysFont(
+            "monospace", 36, bold=True
+        )
+        self.hint_font: pygame.font.Font = pygame.font.SysFont(
+            "monospace", 24, bold=True
+        )
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        """Cycles the theme and returns to the menu.
+
+        Args:
+            event: The pygame event to handle.
+        """
+        if event.type != pygame.KEYDOWN:
+            return
+
+        if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            step = 1 if event.key == pygame.K_RIGHT else -1
+            self.theme_index = (
+                (self.theme_index + step) % len(AVAILABLE_THEMES)
+            )
+            self.game.config.theme = AVAILABLE_THEMES[self.theme_index]
+        elif event.key in (pygame.K_ESCAPE, pygame.K_RETURN):
+            from pacman.scenes.menu import MenuScene
+            self.game.change_scene(MenuScene(self.game))
+
+    def update(self, dt: float) -> None:
+        """No timed logic on the options screen.
+
+        Args:
+            dt: Delta time in seconds since the last frame.
+        """
+        pass
+
+    def draw(self, target: pygame.Surface) -> None:
+        """Draws the heading, the theme selector, and the hints.
+
+        Args:
+            target: The arcade surface to draw onto.
+        """
+        target.fill(BG_COLOR)
+
+        title = self.title_font.render("OPTIONS", True, TITLE_COLOR)
+        title_rect = title.get_rect(center=(ARCADE_W // 2, 140))
+        target.blit(title, title_rect)
+
+        label = self.item_font.render("Theme", True, LABEL_COLOR)
+        label_rect = label.get_rect(center=(ARCADE_W // 2, ARCADE_H // 2 - 40))
+        target.blit(label, label_rect)
+
+        theme_name = AVAILABLE_THEMES[self.theme_index]
+        value = self.item_font.render(
+            f"< {theme_name} >", True, VALUE_COLOR
+        )
+        value_rect = value.get_rect(
+            center=(ARCADE_W // 2, ARCADE_H // 2 + 20)
+        )
+        target.blit(value, value_rect)
+
+        hint = self.hint_font.render(
+            "LEFT / RIGHT to change, ENTER to return", True, HINT_COLOR
+        )
+        hint_rect = hint.get_rect(center=(ARCADE_W // 2, ARCADE_H - 80))
+        target.blit(hint, hint_rect)
