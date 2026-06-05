@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, fields
-from typing import Any
+from typing import Any, cast
 
 
 @dataclass
@@ -21,6 +21,9 @@ class Configuration:
     points_per_pacgum: int = 10
     points_per_super_pacgum: int = 50
     points_per_ghost: int = 200
+    theme: str = "classic"
+    window_width: int = 960
+    window_height: int = 1000
 
     @classmethod
     def load(cls, config_path: str) -> "Configuration":
@@ -83,7 +86,7 @@ class Configuration:
 
             data = json.loads(clean_json_str)
             if isinstance(data, dict):
-                return data
+                return cast(dict[str, Any], data)
             print("Warning: Malformed JSON structure. Using defaults.")
             return {}
         except (OSError, json.JSONDecodeError) as e:

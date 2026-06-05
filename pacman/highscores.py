@@ -100,20 +100,16 @@ class HighscoreManager:
 
             if not isinstance(raw_data, list):
                 raise OSError("Highscores must be a list")
-
             self.scores = []  # Clear in-memory board before rebuilding
             for item in raw_data:
                 if not isinstance(item, dict):
                     continue
                 if "name" not in item or "score" not in item:
                     continue
-
-                # Safely intercept value type mismatches per row
                 try:
                     clean_score = int(item["score"])
                 except (ValueError, TypeError):
                     continue
-
                 self.add_score(str(item["name"]), clean_score)
 
         except (OSError, json.JSONDecodeError) as e:
@@ -149,3 +145,13 @@ class HighscoreManager:
 
         self.scores.sort(key=lambda x: x["score"], reverse=True)
         self.scores = self.scores[:10]
+
+    def best(self) -> int:
+        """Returns the highest score on the leaderboard, or 0 if empty.
+
+        Returns:
+            The top score currently recorded.
+        """
+        if not self.scores:
+            return 0
+        return int(self.scores[0]["score"])

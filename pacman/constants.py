@@ -3,7 +3,14 @@ PAC_SPEED: float = 5.0
 
 # Ghost velocity
 GHOST_SPEED: float = 4.0
-
+# Collision distance threshold
+COLLISION_DISTANCE: float = 0.5
+# Ghost Colors
+GHOST_COLORS: list[str] = ['red', 'pink', 'orange', 'blue']
+# Direction letter suffix on file names
+DIR_LETTER: dict[str, str] = {'S': 'B', 'N': 'C', 'E': 'D', 'W': 'E'}
+# Fallback Theme
+FALLBACK_THEME: str = "classic"
 # Animation frame duration parameters
 PAC_ANIM_SPEED: float = 10.0
 PAC_ANIM_FRAMES: int = 3
@@ -45,6 +52,15 @@ SPRITE_SIZE: int = 48
 # Cell dimensions
 CELL_SIZE: int = 48
 # HUD SIZE
-HUD_HEIGHT: int = CELL_SIZE + 16
+HUD_BAR_H: int = 48
+# Largest maze expected — sizes the play area 960x960
+MAX_MAZE_CELLS: int = 20
+GAME_AREA_W: int = MAX_MAZE_CELLS * CELL_SIZE
+MAZE_AREA_H: int = MAX_MAZE_CELLS * CELL_SIZE
+# Arcade virtual screen (play area + HUD bars); frame added later
+ARCADE_W: int = GAME_AREA_W
+ARCADE_H: int = MAZE_AREA_H + HUD_BAR_H * 2
+# Background fill color
+BG_COLOR: tuple[int, int, int] = (0, 0, 0)
 # Environment configuration constraints
 FPS: int = 60
