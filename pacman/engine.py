@@ -4,6 +4,7 @@ from pacman.items import Consumable, Pacgum, SuperPacgum
 from pacman.ghosts import Ghost
 from pacman.constants import (
     PAC_SPEED,
+    COLLISION_DISTANCE,
     OPPOSITE_DIR,
     PAC_INPUT_BUFFER,
     PAC_RESPAWN_PAUSE,
@@ -44,13 +45,25 @@ class PacmanEngine:
             config: Fully loaded game initialization options container.
         """
         self.config: Configuration = config
+        self.level: int = 1
+        self.level_timer: float = 90.0
         self.score: int = 0
         self.lives: int = config.lives
+        # Pause before re-spawning
+        self.respawn_pause_timer: float = 0.0
 
+        self._build_level(seed=config.seed)
+
+    def _build_level(self, seed: int = 0) -> None:
+        """Generates the maze matrix and populates all entities and items.
+
+        Args:
+            seed: Optional integer to dictate deterministic map layouts.
+        """
         generator: MazeGenerator = MazeGenerator(
             size=(15, 15),
             perfect=False,
-            seed=config.seed
+            seed=seed
         )
 
         self.grid: list[list[int]] = generator.maze
@@ -74,8 +87,6 @@ class PacmanEngine:
         self.pac_move_progress: float = 0.0
         # Establishes if pacman is dead or alive
         self.pac_dying: bool = False
-        # Pause before re-spawning
-        self.respawn_pause_timer: float = 0.0
         # Initialize the item layout matrix to track active collectibles
         self.items: list[list[Consumable | None]] = [
             [
@@ -183,18 +194,50 @@ class PacmanEngine:
                 self.items[self.pac_row][self.pac_col] = None
 
     def _check_collisions(self) -> None:
-        """Checks ghost collisions, triggering death or ghost consumption."""
-        for ghost in self.ghosts:
-            if ghost.col == self.pac_col and ghost.row == self.pac_row:
-                if ghost.state == "CHASE":
-                    # If caught by ghost marks pacman as dieing
-                    self.pac_dying = True
-                    return
+        """Checks ghost collisions, triggering death or ghost consumption.
 
-                elif ghost.state == "FRIGHTENED":
-                    self.score += self.config.points_per_ghost
-                    ghost.state = "EATEN"
-                    ghost.state_timer = 5.0
+        Uses the continuous (interpolated) positions of Pac-Man and each
+        ghost rather than raw grid indices, so a collision only fires
+        when the two are visually overlapping. Each actor's position is
+        its cell plus its movement progress along its current direction.
+        """
+        pdc, pdr = DIRECTION_DELTAS[self.pac_dir]
+        pac_x: float = self.pac_col + pdc * self.pac_move_progress
+        pac_y: float = self.pac_row + pdr * self.pac_move_progress
+
+        for ghost in self.ghosts:
+            gdc, gdr = DIRECTION_DELTAS[ghost.current_dir]
+            ghost_x: float = ghost.col + gdc * ghost.move_progress
+            ghost_y: float = ghost.row + gdr * ghost.move_progress
+
+            # Distance in cell units between the two interpolated points.
+            dist: float = (
+                (pac_x - ghost_x) ** 2 + (pac_y - ghost_y) ** 2
+            ) ** 0.5
+            if dist >= COLLISION_DISTANCE:
+                continue
+
+            if ghost.state == "CHASE":
+                # If caught by ghost marks pacman as dieing
+                self.pac_dying = True
+                return
+
+            elif ghost.state == "FRIGHTENED":
+                self.score += self.config.points_per_ghost
+                ghost.state = "EATEN"
+                # Set timer and respawn home
+                ghost.state_timer = 5.0
+
+    def has_items(self) -> bool:
+        """Checks if any consumable pellets remain in the maze.
+
+        Returns:
+            True if at least one item is left; False if the maze is clear.
+        """
+        return any(
+            any(item is not None for item in row)
+            for row in self.items
+        )
 
     def get_start_dir(self, col: int, row: int) -> str:
         """Dynamically detects open map corridor from a starting matrix cell.
@@ -254,6 +297,17 @@ class PacmanEngine:
             self.respawn_pause_timer -= dt
             return
 
+        self.level_timer -= dt
+        if self.level_timer <= 0.0:
+            self.lives -= 1
+            self.level_timer = 90.0
+
+            current_seed = self.config.seed if self.level == 1 else 0
+            self._build_level(seed=current_seed)
+
+            self.respawn_pause_timer = PAC_RESPAWN_PAUSE
+            return
+
         self._update_pacman(dt)
 
         # Tick all ghost routing lookahead cycles forward
@@ -269,3 +323,9 @@ class PacmanEngine:
             if ghost.state != "EATEN":
                 ghost.state = "FRIGHTENED"
                 ghost.state_timer = 10.0
+
+    def advance_level(self) -> None:
+        """Regenerates the maze layout for subsequent randomized levels."""
+        self.level += 1
+        self.level_timer = 90.0
+        self._build_level()
