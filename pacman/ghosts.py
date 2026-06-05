@@ -1,12 +1,37 @@
 from typing import TYPE_CHECKING
-from pacman.constants import DIRECTION_DELTAS, GHOST_SPEED, OPPOSITE_DIR
 import random
+from pacman.constants import DIRECTION_DELTAS, GHOST_SPEED, OPPOSITE_DIR
 
 if TYPE_CHECKING:
     from pacman.engine import PacmanEngine
 
 
 class Ghost:
+    """Represents an autonomous enemy entity driven by AI targeting profiles.
+
+    Ghosts navigate the map grid independently using specialized pathfinding
+    strategies dictated by their unique identities. They shift dynamically
+    across operational phases while utilizing lookahead vectors.
+
+    Attributes:
+        col: Active discrete X-axis block coordinate inside the maze.
+        row: Active discrete Y-axis block coordinate inside the maze.
+        home_col: X-axis spawn and respawn anchor block coordinate.
+        home_row: Y-axis spawn and respawn anchor block coordinate.
+        ghost_id: Integer identifier profiling individual routing AI.
+        move_progress: Interpolation progress tracking bounded between
+            0.0 and 1.0.
+        start_dir: Cardinal heading assigned at session initialization.
+        current_dir: Active cardinal movement heading index.
+        target_col: Calculated destination X-axis coordinate cell.
+        target_row: Calculated destination Y-axis coordinate cell.
+        state: Behavior mode tracking descriptor ("CHASE", "FRIGHTENED",
+            "EATEN").
+        state_timer: Remaining active lifecycle countdown for transient
+            states.
+        eaten_speed: Dynamic velocity utilized during base return journeys.
+    """
+
     def __init__(
         self,
         col: int,
@@ -16,6 +41,16 @@ class Ghost:
         ghost_id: int,
         start_dir: str = "N"
     ) -> None:
+        """Initializes a ghost instance with routing boundaries.
+
+        Args:
+            col: Starting X-axis grid layout coordinate slot.
+            row: Starting Y-axis grid layout coordinate slot.
+            home_col: Default target home anchor X-axis tile.
+            home_row: Default target home anchor Y-axis tile.
+            ghost_id: Integer mapping used to select behavioral profiles.
+            start_dir: Initial cardinal heading character selection.
+        """
         self.col: int = col
         self.row: int = row
         self.home_col: int = home_col
@@ -38,6 +73,18 @@ class Ghost:
         target_r: int,
         engine: "PacmanEngine"
     ) -> float:
+        """Evaluates shortest legal path distance using a BFS.
+
+        Args:
+            start_c: Column index of the starting evaluation coordinate.
+            start_r: Row index of the starting evaluation coordinate.
+            target_c: Column index of the destination target node.
+            target_r: Row index of the destination target node.
+            engine: Shared reference to the central core logic driver.
+
+        Returns:
+            The total path distance step count, or float("inf") if blocked.
+        """
         if start_c == target_c and start_r == target_r:
             return 0.0
 
@@ -62,7 +109,7 @@ class Ghost:
         return float("inf")
 
     def reset(self) -> None:
-        """Resets the ghost to its initial spawn state."""
+        """Resets the ghost entity to initial spawn parameters."""
         self.col = self.home_col
         self.row = self.home_row
         self.move_progress = 0.0
@@ -73,6 +120,12 @@ class Ghost:
         self.state_timer = 0.0
 
     def update(self, dt: float, engine: "PacmanEngine") -> None:
+        """Advances entity AI tracking logic and cell travel transitions.
+
+        Args:
+            dt: Delta time parameter in seconds elapsed since last frame.
+            engine: Shared reference to the central core logic driver.
+        """
         # Advance state lifecycle timers
         if self.state in ["FRIGHTENED", "EATEN"]:
             self.state_timer -= dt
@@ -112,8 +165,7 @@ class Ghost:
                     self.target_row = self.home_row
 
             elif self.ghost_id == 3:
-                # Inky: Mirror offset tactic
-                # Target Pac-Man's position flipped over Blinky's coordinates
+                # Inky: Mirror offset tactic over Blinky's coordinates
                 blinky = engine.ghosts[0]
                 raw_c = engine.pac_col + (engine.pac_col - blinky.col)
                 raw_r = engine.pac_row + (engine.pac_row - blinky.row)
@@ -164,7 +216,7 @@ class Ghost:
                 next_c = self.col + dc_next
                 next_r = self.row + dr_next
 
-                # Prevent negative wrapping and check map boundaries strictly
+                # Prevent negative wrapping and check boundaries strictly
                 if (
                     0 <= next_c < engine.grid_cols
                     and 0 <= next_r < engine.grid_rows
@@ -205,8 +257,7 @@ class Ghost:
                         col_dist = (next_col - self.target_col) ** 2
                         row_dist = (next_row - self.target_row) ** 2
 
-                        # No square root, because if A**2 < B**2, then A < B
-                        # Avoids unnecessary computation
+                        # No square root to avoid unnecessary computation
                         dist = float(col_dist + row_dist)
 
                     if dist < min_distance:

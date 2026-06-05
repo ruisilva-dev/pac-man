@@ -14,5 +14,10 @@
 | 🟢 | Centralize physics and rendering constraints | Both | 02/06/2026 | 02/06/2026 | Extracted hardcoded variables into constants.py to decouple dependencies. |
 | 🟢 | Implement ghost AI, BFS pathfinding, and behaviors | ruisilva | 03/06/2026 | 04/06/2026 | Added class profiles (Blinky, Pinky, Inky, Clyde). Delayed 1 day to refactor ghost respawn logic, ensuring travel speeds sync perfectly with the strict 5-second penalty. |
 | 🟢 | Integrate collision states, death sequences, and HUD | Both | 04/06/2026 | 04/06/2026 | Engine handles grid boundaries, ghost rendering, and frightened triggers. |
+| 🟢 | Implement dynamic asset loader and theme caching | luida-cu | 04/06/2026 | 04/06/2026 | Extracted Pygame loading logic into an isolated loader to prevent memory leaks and support theme swapping. |
+| 🟢 | Build polymorphic scene architecture (Menus/UI) | luida-cu | 04/06/2026 | 04/06/2026 | Replaced monolithic state-machine with Scene pattern (Menu, Options, Highscore, Game Over, Pause). |
+| 🟢 | Implement fixed-aspect letterboxing & viewport scaling | luida-cu | 04/06/2026 | 04/06/2026 | Game loop now renders to a fixed arcade surface before projecting mathematically onto the hardware window. |
+| 🟢 | Fix continuous actor collisions & integrate smoothscale | luida-cu | 05/06/2026 | 05/06/2026 | Resolved clipping bug by tracking interpolated coordinates and optimized hardware viewport project scaling. |
+| 🟢 | Implement core level metrics & progression data layer | ruisilva | 05/06/2026 | 05/06/2026 | Added level countdown timer, single life timeout penalty, and built dynamic procedural map factory under DRY methods. |
 
 *Status Legend: ⚪ Not Started | 🟡 In Progress | 🟢 Completed*
