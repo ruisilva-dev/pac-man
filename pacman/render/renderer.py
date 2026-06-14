@@ -98,9 +98,25 @@ class GameRenderer:
             theme: Name of the theme to activate.
         """
         self.assets = self.loader.load(theme)
+
+        self.grid = self.engine.grid
+        self.rows = len(self.grid)
+        self.cols = len(self.grid[0]) if self.rows > 0 else 0
+
+        self.world_width = self.cols * CELL_SIZE
+        self.world_height = self.rows * CELL_SIZE
+        self.world_surface = pygame.Surface(
+            (self.world_width, self.world_height)
+        )
+
         self.background_surface = pygame.Surface(
             (self.world_width, self.world_height)
         )
+
+        self.superpacgum_anim_index = 0
+        self.superpacgum_anim_timer = 0.0
+        self.superpacgum_wait_timer = 0.0
+
         self._render_background()
 
     def cell_pos(self, col: int, row: int) -> tuple[int, int]:
@@ -352,12 +368,25 @@ class GameRenderer:
         target_h: int = target.get_height()
 
         # Top bar: centered high score
+        lvl_text = self.font.render(
+            f"LEVEL {self.engine.level}", True, HUD_TEXT_COLOR
+        )
+        target.blit(lvl_text, (CELL_SIZE // 4, (HUD_BAR_H - 20) // 2))
+
         hs_text = self.font.render(
-            f"HIGH SCORE {highscore:06d}",
-            True, HUD_TEXT_COLOR
+            f"HIGH SCORE {highscore:06d}", True, HUD_TEXT_COLOR
         )
         hs_rect = hs_text.get_rect(center=(target_w // 2, HUD_BAR_H // 2))
         target.blit(hs_text, hs_rect)
+
+        time_val = max(0, int(self.engine.level_timer))
+        time_text = self.font.render(
+            f"TIME {time_val:02d}", True, HUD_TEXT_COLOR
+        )
+        time_rect = time_text.get_rect(
+            midright=(target_w - CELL_SIZE // 4, HUD_BAR_H // 2)
+        )
+        target.blit(time_text, time_rect)
 
         # Bottom bar: lives on the left, score on the right
         bottom_y: int = target_h - HUD_BAR_H
