@@ -12,7 +12,7 @@ VALUE_COLOR: tuple[int, int, int] = (255, 255, 0)
 HINT_COLOR: tuple[int, int, int] = (180, 180, 180)
 
 # Themes selectable from the options screen
-AVAILABLE_THEMES: list[str] = ["classic", "japan"]
+AVAILABLE_THEMES: list[str] = ["classic", "japan", "hawaii"]
 
 
 class OptionsScene(Scene):
@@ -29,13 +29,14 @@ class OptionsScene(Scene):
         hint_font: Font for the navigation hint.
     """
 
-    def __init__(self, game: "Game") -> None:
+    def __init__(self, game: "Game", previous_scene: Scene) -> None:
         """Initializes the options screen at the current theme.
 
         Args:
             game: The coordinating Game instance.
         """
         super().__init__(game)
+        self.previous_scene = previous_scene
         current = game.config.theme
         self.theme_index: int = (
             AVAILABLE_THEMES.index(current)
@@ -65,10 +66,13 @@ class OptionsScene(Scene):
             self.theme_index = (
                 (self.theme_index + step) % len(AVAILABLE_THEMES)
             )
-            self.game.config.theme = AVAILABLE_THEMES[self.theme_index]
+            new_theme = AVAILABLE_THEMES[self.theme_index]
+            self.game.config.theme = new_theme
+
+            if hasattr(self.previous_scene, "game_scene"):
+                self.previous_scene.game_scene.renderer.set_theme(new_theme)
         elif event.key in (pygame.K_ESCAPE, pygame.K_RETURN):
-            from pacman.scenes.menu import MenuScene
-            self.game.change_scene(MenuScene(self.game))
+            self.game.change_scene(self.previous_scene)
 
     def update(self, dt: float) -> None:
         """No timed logic on the options screen.
@@ -84,7 +88,18 @@ class OptionsScene(Scene):
         Args:
             target: The arcade surface to draw onto.
         """
-        target.fill(BG_COLOR)
+        # See if previous scene has a game_scene reference
+        if (
+            hasattr(self.previous_scene, "game_scene") and
+            hasattr(self.previous_scene, "overlay")
+        ):
+            # Render the frozen underlying gameplay state frame
+            self.previous_scene.game_scene.draw(target)
+            # Re-use the existing pause translucent overlay surface layer
+            target.blit(self.previous_scene.overlay, (0, 0))
+        else:
+            # Fall back to a solid black backdrop if opened from the main menu
+            target.fill(BG_COLOR)
 
         title = self.title_font.render("OPTIONS", True, TITLE_COLOR)
         title_rect = title.get_rect(center=(ARCADE_W // 2, 140))

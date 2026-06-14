@@ -40,7 +40,9 @@ class PauseScene(Scene):
         """
         super().__init__(game)
         self.game_scene: GameScene = game_scene
-        self.options: list[str] = ["Resume", "Quit to Menu"]
+        self.options: list[str] = [
+            "Resume", "Restart Game", "Instructions", "Options", "Quit to Menu"
+        ]
         self.selected: int = 0
         self.title_font: pygame.font.Font = pygame.font.SysFont(
             "monospace", 64, bold=True
@@ -75,6 +77,23 @@ class PauseScene(Scene):
         """Performs the highlighted pause action."""
         if self.options[self.selected] == "Resume":
             self.game.change_scene(self.game_scene)
+        elif self.options[self.selected] == "Restart Game":
+            engine = self.game_scene.engine
+
+            engine.level = 1
+            engine.score = 0
+            engine.lives = self.game.config.lives
+            engine.level_timer = 90.0
+
+            engine._build_level(seed=self.game.config.seed)
+            self.game_scene.renderer.set_theme(self.game.config.theme)
+            self.game.change_scene(self.game_scene)
+        elif self.options[self.selected] == "Instructions":
+            from pacman.scenes.instructions import InstructionsScene
+            self.game.change_scene(InstructionsScene(self.game, self))
+        elif self.options[self.selected] == "Options":
+            from pacman.scenes.options import OptionsScene
+            self.game.change_scene(OptionsScene(self.game, self))
         else:
             from pacman.scenes.menu import MenuScene
             self.game.change_scene(MenuScene(self.game))
