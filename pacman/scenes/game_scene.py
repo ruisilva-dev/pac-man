@@ -39,6 +39,14 @@ class GameScene(Scene):
         self._death_started: bool = False
         self.last_dt: float = 0.0
 
+    def _advance_stage(self) -> None:
+        if self.engine.level >= 10:
+            from pacman.scenes.victory import VictoryScene
+            self.game.change_scene(VictoryScene(self.game, self.engine.score))
+        else:
+            self.engine.advance_level()
+            self.renderer.set_theme(self.game.config.theme)
+
     def handle_event(self, event: pygame.event.Event) -> None:
         """Handles movement keys and pausing.
 
@@ -64,6 +72,18 @@ class GameScene(Scene):
             from pacman.scenes.pause import PauseScene
             self.game.change_scene(PauseScene(self.game, self))
 
+        # Cheats
+        elif event.key == pygame.K_F1:
+            self.engine.cheat_invincible = not self.engine.cheat_invincible
+        elif event.key == pygame.K_F2:
+            self._advance_stage()
+        elif event.key == pygame.K_F3:
+            self.engine.cheat_freeze = not self.engine.cheat_freeze
+        elif event.key == pygame.K_F4:
+            self.engine.lives = min(5, self.engine.lives + 1)
+        elif event.key == pygame.K_F5:
+            self.engine.cheat_speed = not self.engine.cheat_speed
+
     def update(self, dt: float) -> None:
         """Advances the simulation and checks for game over.
 
@@ -79,6 +99,9 @@ class GameScene(Scene):
         else:
             self._death_started = False
             self.engine.update(dt)
+
+            if not self.engine.has_items():
+                self._advance_stage()
 
         # Out of lives -> record score and go to game over.
         if self.engine.lives <= 0:

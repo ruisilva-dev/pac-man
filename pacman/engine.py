@@ -51,6 +51,10 @@ class PacmanEngine:
         self.lives: int = config.lives
         # Pause before re-spawning
         self.respawn_pause_timer: float = 0.0
+        # Cheats
+        self.cheat_invincible: bool = False
+        self.cheat_freeze: bool = False
+        self.cheat_speed: bool = False
 
         self._build_level(seed=config.seed)
 
@@ -90,10 +94,11 @@ class PacmanEngine:
         # Initialize the item layout matrix to track active collectibles
         self.items: list[list[Consumable | None]] = [
             [
-                Pacgum(self.config.points_per_pacgum) if val < 15 else None
-                for val in row
+                Pacgum(self.config.points_per_pacgum)
+                if val < 15 and (r_idx + c_idx) % 4 != 0 else None
+                for c_idx, val in enumerate(row)
             ]
-            for row in self.grid
+            for r_idx, row in enumerate(self.grid)
         ]
         self.items[self.pac_row][self.pac_col] = None
 
@@ -178,7 +183,8 @@ class PacmanEngine:
             return
 
         # Advance mechanical cell travel interpolation counters
-        self.pac_move_progress += dt * PAC_SPEED
+        speed_factor = 2.0 if self.cheat_speed else 1.0
+        self.pac_move_progress += dt * PAC_SPEED * speed_factor
         if self.pac_move_progress >= 1.0:
             self.pac_move_progress = 0.0
 
@@ -218,7 +224,10 @@ class PacmanEngine:
                 continue
 
             if ghost.state == "CHASE":
-                # If caught by ghost marks pacman as dieing
+                if self.cheat_invincible:
+                    continue
+
+                # If caught by ghost marks pacman as dying
                 self.pac_dying = True
                 return
 
@@ -297,7 +306,8 @@ class PacmanEngine:
             self.respawn_pause_timer -= dt
             return
 
-        self.level_timer -= dt
+        if not self.cheat_freeze:
+            self.level_timer -= dt
         if self.level_timer <= 0.0:
             self.lives -= 1
             self.level_timer = 90.0
@@ -311,8 +321,9 @@ class PacmanEngine:
         self._update_pacman(dt)
 
         # Tick all ghost routing lookahead cycles forward
-        for ghost in self.ghosts:
-            ghost.update(dt, self)
+        if not self.cheat_freeze:
+            for ghost in self.ghosts:
+                ghost.update(dt, self)
 
         # Check if a grid collision boundary has been tripped
         self._check_collisions()
