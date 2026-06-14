@@ -30,7 +30,7 @@ class MenuScene(Scene):
         """
         super().__init__(game)
         self.options: list[str] = [
-            "Start Game", "High Scores", "Options", "Exit"
+            "Start Game", "High Scores", "Instructions", "Options", "Exit"
         ]
         self.selected: int = 0
         self.title_font: pygame.font.Font = pygame.font.SysFont(
@@ -65,9 +65,12 @@ class MenuScene(Scene):
         elif choice == "High Scores":
             from pacman.scenes.highscore import HighScoreScene
             self.game.change_scene(HighScoreScene(self.game))
+        elif choice == "Instructions":
+            from pacman.scenes.instructions import InstructionsScene
+            self.game.change_scene(InstructionsScene(self.game, self))
         elif choice == "Options":
             from pacman.scenes.options import OptionsScene
-            self.game.change_scene(OptionsScene(self.game))
+            self.game.change_scene(OptionsScene(self.game, self))
         elif choice == "Exit":
             self.game.running = False
 
