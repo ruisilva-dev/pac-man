@@ -6,38 +6,38 @@ from pacman.constants import ARCADE_W, ARCADE_H, BG_COLOR
 if TYPE_CHECKING:
     from pacman.game import Game
 
-TITLE_COLOR: tuple[int, int, int] = (255, 0, 0)
+
+TITLE_COLOR: tuple[int, int, int] = (255, 255, 0)
+SUBTITLE_COLOR: tuple[int, int, int] = (0, 255, 0)
 SCORE_COLOR: tuple[int, int, int] = (255, 255, 255)
 NAME_COLOR: tuple[int, int, int] = (255, 255, 0)
 HINT_COLOR: tuple[int, int, int] = (180, 180, 180)
-
-# Maximum characters allowed in a leaderboard name
 MAX_NAME_LEN: int = 10
 
 
-class GameOverScene(Scene):
-    """Game-over screen with leaderboard name entry.
+class VictoryScene(Scene):
+    """Victory screen shown after clearing the final level.
 
-    Shows the final score and, when it qualifies for the leaderboard,
-    lets the player type a name. Confirming records the score and
-    returns to the menu.
+    Mirrors the game-over flow: shows the final score, lets the player
+    type a name for the leaderboard, records it, and returns to the
+    menu. The messaging celebrates the win rather than announcing a
+    loss.
 
     Attributes:
         game: Back-reference to the coordinating Game.
-        score: The final score achieved this run.
+        score: The final score achieved across the full run.
         name: The name being typed by the player.
         submitted: Whether the score has already been recorded.
         title_font: Font for the heading.
         info_font: Font for score and name.
         hint_font: Font for the hint line.
     """
-
     def __init__(self, game: "Game", score: int) -> None:
-        """Initializes the game-over screen with the final score.
-
+        """
+        Initializes the victory screen with the final score.
         Args:
             game: The coordinating Game instance.
-            score: The final score from the finished run.
+            score: The final score from the completed run.
         """
         super().__init__(game)
         self.score: int = score
@@ -84,44 +84,51 @@ class GameOverScene(Scene):
         self.game.change_scene(MenuScene(self.game))
 
     def update(self, dt: float) -> None:
-        """No timed logic on the game-over screen.
-
+        """
+        No timed logic on the victory screen.
         Args:
             dt: Delta time in seconds since the last frame.
         """
         pass
 
     def draw(self, target: pygame.Surface) -> None:
-        """Draws the heading, score, name field, and hint.
+        """
+        Draws the heading, score, name field, and hint.
 
         Args:
             target: The arcade surface to draw onto.
         """
         target.fill(BG_COLOR)
-
-        title = self.title_font.render("GAME OVER", True, TITLE_COLOR)
+        title = self.title_font.render("YOU WIN", True, TITLE_COLOR)
         title_rect = title.get_rect(center=(ARCADE_W // 2, ARCADE_H // 4))
         target.blit(title, title_rect)
 
+        subtitle = self.info_font.render(
+            "ALL LEVELS CLEARED", True, SUBTITLE_COLOR
+        )
+        subtitle_rect = subtitle.get_rect(
+            center=(ARCADE_W // 2, ARCADE_H // 4 + 60)
+        )
+        target.blit(subtitle, subtitle_rect)
         score_text = self.info_font.render(
             f"SCORE  {self.score:06d}", True, SCORE_COLOR
         )
         score_rect = score_text.get_rect(
-            center=(ARCADE_W // 2, ARCADE_H // 2 - 60)
+            center=(ARCADE_W // 2, ARCADE_H // 2 - 40)
         )
         target.blit(score_text, score_rect)
 
         prompt = self.info_font.render("ENTER YOUR NAME", True, SCORE_COLOR)
         prompt_rect = prompt.get_rect(
-            center=(ARCADE_W // 2, ARCADE_H // 2 + 10)
+            center=(ARCADE_W // 2, ARCADE_H // 2 + 30)
         )
         target.blit(prompt, prompt_rect)
 
-        # Name field with a blinking-style underscore cursor.
+        # Name field with a trailing underscore cursor.
         shown = self.name + "_"
         name_text = self.info_font.render(shown, True, NAME_COLOR)
         name_rect = name_text.get_rect(
-            center=(ARCADE_W // 2, ARCADE_H // 2 + 70)
+            center=(ARCADE_W // 2, ARCADE_H // 2 + 90)
         )
         target.blit(name_text, name_rect)
 
