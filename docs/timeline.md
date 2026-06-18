@@ -30,5 +30,11 @@
 | 🟢 | Transform Options into a multi-context system layer | ruisilva | 09/06/2026 | 09/06/2026 | Overhauled OptionsScene constructor and event blocks to receive dynamic caller references, allowing real-time theme swapping over a frozen blurred game view. |
 | 🟢 | Add escape shortcuts to post-game screens | ruisilva | 09/06/2026 | 09/06/2026 | Patched event loops inside post-game name entry fields to allow short-circuiting back to MenuScene via K_ESCAPE without writing score dumps onto disk. |
 | 🟢 | Integrate Hawaii theme artwork | luida-cu | 11/06/2026 | 11/06/2026 | Integrated full independent artwork assets for the newly completed Hawaii theme. |
+| 🟢 | Relocate global configuration arrays | luida-cu | 15/06/2026 | 15/06/2026 | Moved AVAILABLE_THEMES from options.py into constants.py to enforce DRY principles and centralize shared data. |
+| 🟢 | Implement engine progression difficulty | ruisilva | 15/06/2026 | 15/06/2026 | Added dynamic dictionaries inside the engine to scale ghost speeds, level maze sizes, and countdown timers based on the current level. |
+| 🟢 | Overhaul Ghost AI routing & physics | ruisilva | 16/06/2026 | 16/06/2026 | Upgraded Ghost AI: Ghosts can now smoothly reverse direction mid-corridor, intelligently avoid Pac-Man while fleeing, and process high-speed movements without clipping through walls. |
+| 🟢 | Implement automatic theme progression | ruisilva | 17/06/2026 | 17/06/2026 | Programmed the engine and renderer to synchronize and automatically advance the visual layout every two levels by default (manual theme overrides remain fully available). |
+| 🟢 | Complete Desert and World Cup themes | luida-cu | 17/06/2026 | 17/06/2026 | Sliced and integrated the final sprite sheet assets and folder architectures for the remaining visual themes. |
+| 🟢 | Add level advancement transition overlay | ruisilva | 17/06/2026 | 17/06/2026 | Implemented a frozen-state 'Level Cleared' banner inside GameScene requiring explicit user confirmation to advance, preventing accidental movement inputs on level spawn. |
 
 *Status Legend: ⚪ Not Started | 🟡 In Progress | 🟢 Completed*
