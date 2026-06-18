@@ -34,14 +34,23 @@ class GameRenderer:
     Attributes:
         engine: Shared logic core engine reference.
         loader: Shared asset loader providing cached theme assets.
-        assets: The currently active theme's sprite container.
         grid: Nested integer sequence modeling active layout bitmasks.
         rows: Total row count of the grid.
         cols: Total column count of the grid.
         world_width: World surface width in pixels (maze only).
         world_height: World surface height in pixels (maze only).
         world_surface: Render target holding the maze and actors.
+        ghost_anim_index: Current visual frame index for ghost animation.
+        ghost_anim_timer: Frame pacing accumulator for ghosts.
+        pac_anim_index: Current visual frame index for Pac-Man movement.
+        pac_anim_timer: Frame pacing accumulator for Pac-Man.
+        death_anim_index: Current visual frame index for the death sequence.
+        death_anim_timer: Frame pacing accumulator for the death sequence.
+        superpacgum_anim_index: Visual frame index for power pellets.
+        superpacgum_anim_timer: Frame pacing accumulator for power pellets.
+        superpacgum_wait_timer: Pause duration between pellet flashes.
         font: HUD text font.
+        assets: The currently active theme's sprite container.
         background_surface: Pre-rendered static maze layer.
     """
 

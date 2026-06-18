@@ -5,7 +5,15 @@ import pygame
 
 
 class InstructionsScene(Scene):
-    """Displays movement keys, cheat hotkeys, and game mechanics rules."""
+    """Displays movement keys, cheat hotkeys, and game mechanics rules.
+
+    Attributes:
+        game: Back-reference to the coordinating Game.
+        previous_scene: The caller scene to return to upon exiting.
+        title_font: Font used for the main screen heading.
+        info_font: Font used for the instruction list and descriptions.
+        hint_font: Font used for the bottom navigation hints.
+    """
 
     TITLE_COLOR: tuple[int, int, int] = (255, 255, 0)  # Yellow
 

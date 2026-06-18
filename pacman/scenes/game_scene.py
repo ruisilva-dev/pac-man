@@ -44,7 +44,7 @@ class GameScene(Scene):
         if initial_theme == "auto":
             initial_theme = "classic"  # Level 1 always starts on classic
 
-        self.renderer: GameRenderer = GameRenderer(
+        self.renderer: GameRenderer = GameRenderer(                                                
             self.engine, game.loader, theme=initial_theme
         )
         self._death_started: bool = False
