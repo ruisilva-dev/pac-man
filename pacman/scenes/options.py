@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 import pygame
 from pacman.scenes.base import Scene
-from pacman.constants import ARCADE_W, ARCADE_H, BG_COLOR
+from pacman.constants import ARCADE_W, ARCADE_H, BG_COLOR, AVAILABLE_THEMES
 
 if TYPE_CHECKING:
     from pacman.game import Game
@@ -10,9 +10,6 @@ TITLE_COLOR: tuple[int, int, int] = (255, 255, 0)
 LABEL_COLOR: tuple[int, int, int] = (255, 255, 255)
 VALUE_COLOR: tuple[int, int, int] = (255, 255, 0)
 HINT_COLOR: tuple[int, int, int] = (180, 180, 180)
-
-# Themes selectable from the options screen
-AVAILABLE_THEMES: list[str] = ["classic", "japan", "hawaii"]
 
 
 class OptionsScene(Scene):
@@ -23,6 +20,7 @@ class OptionsScene(Scene):
 
     Attributes:
         game: Back-reference to the coordinating Game.
+        previous_scene: The caller scene to return to upon exiting.
         theme_index: Index into AVAILABLE_THEMES for the current theme.
         title_font: Font for the heading.
         item_font: Font for the option rows.
@@ -69,8 +67,25 @@ class OptionsScene(Scene):
             new_theme = AVAILABLE_THEMES[self.theme_index]
             self.game.config.theme = new_theme
 
+            if new_theme == "auto":
+                self.game.theme_overridden = False
+            else:
+                self.game.theme_overridden = True
+
+            # If inside an active run, synchronize immediately
             if hasattr(self.previous_scene, "game_scene"):
-                self.previous_scene.game_scene.renderer.set_theme(new_theme)
+                g_scene = self.previous_scene.game_scene
+
+                # If auto is chosen mid-game, resolve current level theme
+                if new_theme == "auto":
+                    progressive_list = AVAILABLE_THEMES[1:]
+                    idx = (g_scene.engine.level - 1) // 2
+                    idx = max(0, min(idx, len(progressive_list) - 1))
+                    resolved_theme = progressive_list[idx]
+                    g_scene.renderer.set_theme(resolved_theme)
+                else:
+                    g_scene.renderer.set_theme(new_theme)
+
         elif event.key in (pygame.K_ESCAPE, pygame.K_RETURN):
             self.game.change_scene(self.previous_scene)
 

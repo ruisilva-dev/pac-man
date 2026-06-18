@@ -5,6 +5,7 @@ from pacman.render.loader import AssetLoader
 from pacman.highscores import HighscoreManager
 from pacman.constants import FPS, ARCADE_W, ARCADE_H, BG_COLOR
 
+
 if TYPE_CHECKING:
     from pacman.scenes.base import Scene
 
@@ -21,6 +22,7 @@ class Game:
     Attributes:
         config: The loaded game configuration.
         loader: Shared asset loader with per-theme caching.
+        theme_overridden: Flag tracking if manual theme selection occurred.
         highscores: Shared leaderboard manager.
         window: The real window surface sized from configuration.
         arcade_surface: Fixed virtual screen every scene draws onto.
@@ -47,6 +49,9 @@ class Game:
         pygame.display.set_caption("Pac-Man")
 
         self.loader: AssetLoader = AssetLoader()
+
+        self.theme_overridden: bool = False
+
         self.highscores: HighscoreManager = HighscoreManager(
             config.highscore_filename, config_path
         )

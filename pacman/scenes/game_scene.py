@@ -3,7 +3,9 @@ import pygame
 from pacman.scenes.base import Scene
 from pacman.engine import PacmanEngine
 from pacman.render.renderer import GameRenderer
-from pacman.constants import ARCADE_W, ARCADE_H, HUD_BAR_H, BG_COLOR
+from pacman.constants import (
+    ARCADE_W, ARCADE_H, HUD_BAR_H, BG_COLOR, AVAILABLE_THEMES
+)
 
 if TYPE_CHECKING:
     from pacman.game import Game
@@ -21,6 +23,9 @@ class GameScene(Scene):
         game: Back-reference to the coordinating Game.
         engine: The gameplay logic engine for this run.
         renderer: Draws the maze, actors, and HUD.
+        _death_started: Internal flag tracking if the death animation
+            has begun.
+        _stage_cleared: Status flag signaling the current level is clear.
         last_dt: Delta time from the latest update, reused when drawing
             so animations advance once per frame.
     """
@@ -33,27 +38,55 @@ class GameScene(Scene):
         """
         super().__init__(game)
         self.engine: PacmanEngine = PacmanEngine(game.config)
+
+        # Auto theme progression
+        initial_theme = game.config.theme
+        if initial_theme == "auto":
+            initial_theme = "classic"  # Level 1 always starts on classic
+
         self.renderer: GameRenderer = GameRenderer(
-            self.engine, game.loader, theme=game.config.theme
+            self.engine, game.loader, theme=initial_theme
         )
         self._death_started: bool = False
+        self._stage_cleared: bool = False
         self.last_dt: float = 0.0
 
     def _advance_stage(self) -> None:
+        """Handles stage completion progression and automated theme swaps."""
         if self.engine.level >= 10:
             from pacman.scenes.victory import VictoryScene
             self.game.change_scene(VictoryScene(self.game, self.engine.score))
         else:
             self.engine.advance_level()
-            self.renderer.set_theme(self.game.config.theme)
+
+            # Automatic transition triggers only if no user override exists
+            if not self.game.theme_overridden:
+                progressive_themes = AVAILABLE_THEMES[1:]
+
+                # Math indexes safely across available themes
+                theme_idx = (self.engine.level - 1) // 2
+                theme_idx = max(0, min(theme_idx, len(progressive_themes) - 1))
+                target_theme = progressive_themes[theme_idx]
+
+                self.renderer.set_theme(target_theme)
+            else:
+                # Retain manual layout selection across level transitions
+                self.renderer.set_theme(self.game.config.theme)
 
     def handle_event(self, event: pygame.event.Event) -> None:
-        """Handles movement keys and pausing.
+        """Handles movement keys, pausing, cheats and level advancement.
 
         Args:
             event: The pygame event to handle.
         """
         if event.type != pygame.KEYDOWN:
+            return
+
+        # If stage is cleared, ignore all gameplay inputs except ENTER
+        if self._stage_cleared:
+            if event.key == pygame.K_RETURN:
+                self._stage_cleared = False
+                self._advance_stage()
             return
 
         if event.key == pygame.K_RIGHT:
@@ -85,12 +118,16 @@ class GameScene(Scene):
             self.engine.cheat_speed = not self.engine.cheat_speed
 
     def update(self, dt: float) -> None:
-        """Advances the simulation and checks for game over.
+        """Advances the simulation and checks for game over or stage clears.
 
         Args:
             dt: Delta time in seconds since the last frame.
         """
         self.last_dt = dt
+
+        # Freeze updates if waiting for user confirmation
+        if self._stage_cleared:
+            return
 
         if self.engine.pac_dying:
             if not self._death_started:
@@ -101,7 +138,7 @@ class GameScene(Scene):
             self.engine.update(dt)
 
             if not self.engine.has_items():
-                self._advance_stage()
+                self._stage_cleared = True
 
         # Out of lives -> record score and go to game over.
         if self.engine.lives <= 0:
@@ -136,3 +173,30 @@ class GameScene(Scene):
         y: int = HUD_BAR_H + (play_h - world.get_height()) // 2
         target.blit(world, (x, y))
         self.renderer.draw_hud(target, self.game.highscores.best())
+
+        # Render the Stage Clear overlay prompt if active
+        if self._stage_cleared:
+            # Overlay block
+            overlay = pygame.Surface((ARCADE_W, ARCADE_H))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(150)
+            target.blit(overlay, (0, 0))
+
+            # Announcement text surfaces
+            font_big = pygame.font.SysFont("monospace", 48, bold=True)
+            font_sm = pygame.font.SysFont("monospace", 24, bold=True)
+
+            clear_surf = font_big.render("LEVEL CLEARED!", True, (0, 255, 0))
+            prompt_surf = font_sm.render(
+                "PRESS ENTER TO CONTINUE", True, (255, 255, 255)
+            )
+
+            c_rect = clear_surf.get_rect(
+                center=(ARCADE_W // 2, ARCADE_H // 2 - 30)
+            )
+            p_rect = prompt_surf.get_rect(
+                center=(ARCADE_W // 2, ARCADE_H // 2 + 30)
+            )
+
+            target.blit(clear_surf, c_rect)
+            target.blit(prompt_surf, p_rect)

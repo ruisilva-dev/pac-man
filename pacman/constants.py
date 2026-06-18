@@ -7,6 +7,10 @@ GHOST_SPEED: float = 4.0
 COLLISION_DISTANCE: float = 0.5
 # Ghost Colors
 GHOST_COLORS: list[str] = ['red', 'pink', 'orange', 'blue']
+# Available Themes:
+AVAILABLE_THEMES: list[str] = [
+    "auto", "classic", "japan", "hawaii", "desert", "worldcup"
+]
 # Direction letter suffix on file names
 DIR_LETTER: dict[str, str] = {'S': 'B', 'N': 'C', 'E': 'D', 'W': 'E'}
 # Fallback Theme

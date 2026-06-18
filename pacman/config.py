@@ -13,6 +13,10 @@ class Configuration:
         seed: The deterministic seed value used for initial maze generation.
         points_per_pacgum: Score point yield per standard pacgum consumed.
         points_per_super_pacgum: Score point yield per super pacgum consumed.
+        points_per_ghost: Score point yield for eating a vulnerable ghost.
+        theme: Theme name string to load, or "auto" for level progression.
+        window_width: The fixed width of the game application window.
+        window_height: The fixed height of the game application window.
     """
 
     highscore_filename: str = "highscore.json"
@@ -21,7 +25,7 @@ class Configuration:
     points_per_pacgum: int = 10
     points_per_super_pacgum: int = 50
     points_per_ghost: int = 200
-    theme: str = "classic"
+    theme: str = "auto"
     window_width: int = 960
     window_height: int = 1000
 
