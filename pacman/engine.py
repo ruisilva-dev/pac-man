@@ -22,20 +22,30 @@ class PacmanEngine:
 
     Attributes:
         config: The configuration state instance reference mapping bounds.
+        level: The current progression level index.
+        level_timer: The remaining countdown time for the active level.
         score: Aggregated game points earned by the player instance.
         lives: Remainder tracking tally for player survival attempts.
+        respawn_pause_timer: Countdown delay after a death before restarting.
+        cheat_invincible: Flag granting immunity to ghost collisions.
+        cheat_freeze: Flag stopping level timer and ghost entity movement.
+        cheat_speed: Flag doubling the player's movement velocity.
+        ghost_speed: Dynamically scaled movement velocity for enemies.
         grid: Two-dimensional matrix representing active map cell encodings.
         grid_rows: Total integer row count of the active simulation space.
         grid_cols: Total integer column count of the active simulation space.
+        pac_home_col: Origin spawn X-axis coordinate for the player.
+        pac_home_row: Origin spawn Y-axis coordinate for the player.
         pac_col: Active discrete X-axis block coordinate of the player.
         pac_row: Active discrete Y-axis block coordinate of the player.
         pac_dir: Active cardinal character direction of player movement.
         pac_next_dir: Buffered target direction requested by user hardware.
-        pac_next_dir_timer: Tracked lifecycle age of the current
-            buffered input.
+        pac_next_dir_timer: Tracked lifecycle age of the buffered input.
         pac_move_progress: Interpolation progress float bounded between
             0.0 and 1.0.
+        pac_dying: Status flag signaling the player is currently dying.
         items: Two-dimensional layout matrix tracking active collectibles.
+        ghosts: Active list of autonomous ghost entities.
     """
 
     def __init__(self, config: Configuration) -> None:
@@ -64,8 +74,36 @@ class PacmanEngine:
         Args:
             seed: Optional integer to dictate deterministic map layouts.
         """
+        # Ghost speed mapping
+        level_speeds: dict[int, float] = {
+            1: 3.6,  2: 3.6,
+            3: 3.8,  4: 3.8,
+            5: 4.0,  6: 4.0,
+            7: 4.2,  8: 4.2,
+            9: 4.5,  10: 4.5
+        }
+        self.ghost_speed = level_speeds.get(self.level, 4.5)
+
+        level_sizes: dict[int, tuple[int, int]] = {
+            1: (15, 15),  2: (15, 15),
+            3: (15, 15),  4: (15, 15),
+            5: (17, 17),  6: (17, 17),
+            7: (17, 17),  8: (17, 17),
+            9: (19, 19),  10: (19, 19)
+        }
+        target_size = level_sizes.get(self.level, (19, 19))
+
+        level_timers: dict[int, float] = {
+            1: 105.0,  2: 105.0,
+            3: 105.0,  4: 105.0,
+            5: 145.0,  6: 145.0,
+            7: 145.0,  8: 145.0,
+            9: 180.0,  10: 180.0
+        }
+        self.level_timer = level_timers.get(self.level, 145.0)
+
         generator: MazeGenerator = MazeGenerator(
-            size=(15, 15),
+            size=target_size,
             perfect=False,
             seed=seed
         )
@@ -238,7 +276,7 @@ class PacmanEngine:
                 ghost.state_timer = 5.0
 
     def has_items(self) -> bool:
-        """Checks if any consumable pellets remain in the maze.
+        """Checks if any consumable pacgums remain in the maze.
 
         Returns:
             True if at least one item is left; False if the maze is clear.
@@ -310,7 +348,6 @@ class PacmanEngine:
             self.level_timer -= dt
         if self.level_timer <= 0.0:
             self.lives -= 1
-            self.level_timer = 90.0
 
             current_seed = self.config.seed if self.level == 1 else 0
             self._build_level(seed=current_seed)
@@ -338,5 +375,4 @@ class PacmanEngine:
     def advance_level(self) -> None:
         """Regenerates the maze layout for subsequent randomized levels."""
         self.level += 1
-        self.level_timer = 90.0
         self._build_level()

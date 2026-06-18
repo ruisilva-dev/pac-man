@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING
-import random
-from pacman.constants import DIRECTION_DELTAS, GHOST_SPEED, OPPOSITE_DIR
+from pacman.constants import DIRECTION_DELTAS, OPPOSITE_DIR
 
 if TYPE_CHECKING:
     from pacman.engine import PacmanEngine
@@ -27,6 +26,7 @@ class Ghost:
         target_row: Calculated destination Y-axis coordinate cell.
         state: Behavior mode tracking descriptor ("CHASE", "FRIGHTENED",
             "EATEN").
+        previous_state: State tracking latch for mid-tile reversal triggers.
         state_timer: Remaining active lifecycle countdown for transient
             states.
         eaten_speed: Dynamic velocity utilized during base return journeys.
@@ -62,6 +62,7 @@ class Ghost:
         self.target_col: int = home_col
         self.target_row: int = home_row
         self.state: str = "CHASE"
+        self.previous_state: str = "CHASE"
         self.state_timer: float = 0.0
         self.eaten_speed: float = 0.0
 
@@ -117,6 +118,7 @@ class Ghost:
         self.target_col = self.home_col
         self.target_row = self.home_row
         self.state = "CHASE"
+        self.previous_state = "CHASE"
         self.state_timer = 0.0
 
     def update(self, dt: float, engine: "PacmanEngine") -> None:
@@ -134,6 +136,16 @@ class Ghost:
         if self.state == "FRIGHTENED" and self.state_timer <= 0.0:
             self.state = "CHASE"
 
+        # Handle state transition
+        if self.state != self.previous_state:
+            if self.move_progress > 0.0:
+                self.move_progress = 1.0 - self.move_progress
+                dc, dr = DIRECTION_DELTAS[self.current_dir]
+                self.col = max(0, min(self.col + dc, engine.grid_cols - 1))
+                self.row = max(0, min(self.row + dr, engine.grid_rows - 1))
+            self.current_dir = OPPOSITE_DIR[self.current_dir]
+            self.previous_state = self.state
+
         # Target coordinate recalculation
         if self.state == "CHASE":
             if self.ghost_id == 0:
@@ -144,8 +156,8 @@ class Ghost:
             elif self.ghost_id == 1:
                 # Pinky: Ambush 4 tiles ahead of Pac-Man's trajectory vector
                 dc, dr = DIRECTION_DELTAS[engine.pac_dir]
-                raw_c = engine.pac_col + (dc * 4)
-                raw_r = engine.pac_row + (dr * 4)
+                raw_c: int = engine.pac_col + (dc * 4)
+                raw_r: int = engine.pac_row + (dr * 4)
 
                 # Clamp inside maze boundaries
                 self.target_col = max(0, min(raw_c, engine.grid_cols - 1))
@@ -153,8 +165,8 @@ class Ghost:
 
             elif self.ghost_id == 2:
                 # Clyde: Flee back to corner if within 8-tile radius threshold
-                dx = engine.pac_col - self.col
-                dy = engine.pac_row - self.row
+                dx: int = engine.pac_col - self.col
+                dy: int = engine.pac_row - self.row
                 distance_squared = (dx * dx) + (dy * dy)
 
                 if distance_squared > 64:  # 8 tiles squared = 64
@@ -166,7 +178,7 @@ class Ghost:
 
             elif self.ghost_id == 3:
                 # Inky: Mirror offset tactic over Blinky's coordinates
-                blinky = engine.ghosts[0]
+                blinky: Ghost = engine.ghosts[0]
                 raw_c = engine.pac_col + (engine.pac_col - blinky.col)
                 raw_r = engine.pac_row + (engine.pac_row - blinky.row)
 
@@ -174,18 +186,37 @@ class Ghost:
                 self.target_col = max(0, min(raw_c, engine.grid_cols - 1))
                 self.target_row = max(0, min(raw_r, engine.grid_rows - 1))
 
-        # Handle Eaten routing and speed
-        if self.state == "EATEN":
+        elif self.state == "FRIGHTENED":
+            # Target furthest corner away from pac-man
+            max_c: int = engine.grid_cols - 1
+            max_r: int = engine.grid_rows - 1
+            corners: list[tuple[int, int]] = [
+                (0, 0), (max_c, 0), (0, max_r), (max_c, max_r)
+            ]
+
+            max_dist: float = -1.0
+            flee_target: tuple[int, int] = (self.home_col, self.home_row)
+            for c, r in corners:
+                dist: float = float(
+                    (c - engine.pac_col) ** 2 + (r - engine.pac_row) ** 2
+                )
+                if dist > max_dist:
+                    max_dist = dist
+                    flee_target = (c, r)
+
+            self.target_col, self.target_row = flee_target
+
+        elif self.state == "EATEN":
+            # Target home corner
             self.target_col = self.home_col
             self.target_row = self.home_row
 
             if self.state_timer <= 0.0:
-                self.col = self.home_col
-                self.row = self.home_row
-                self.move_progress = 0.0
-                self.state = "CHASE"
+                self.reset()
                 return
 
+        # Calculate dynamic speed
+        if self.state == "EATEN":
             dist_left = self._bfs_distance(
                 self.col, self.row, self.home_col, self.home_row, engine
             )
@@ -197,17 +228,17 @@ class Ghost:
             time_left = max(0.1, self.state_timer - 0.2)
             active_speed = dist_left / time_left
         else:
-            active_speed = GHOST_SPEED
+            active_speed = engine.ghost_speed
 
         self.move_progress += dt * active_speed
 
         # Arrived on new cell
-        if self.move_progress >= 1.0:
+        while self.move_progress >= 1.0:
             self.move_progress -= 1.0
 
             dc, dr = DIRECTION_DELTAS[self.current_dir]
-            self.col += dc
-            self.row += dr
+            self.col = max(0, min(self.col + dc, engine.grid_cols - 1))
+            self.row = max(0, min(self.row + dr, engine.grid_rows - 1))
 
             # Valid moves from current position
             valid_moves: list[str] = []
@@ -231,38 +262,51 @@ class Ghost:
                 valid_moves.append(OPPOSITE_DIR[self.current_dir])
 
             # Find best option to get closer to target
-            best_choice = ""
+            best_choice: str = ""
+            min_distance: float = float("inf")
 
-            if self.state == "FRIGHTENED":
-                best_choice = random.choice(valid_moves)
+            # Current distance to pac-man
+            curr_to_pac: int = (
+                (self.col - engine.pac_col) ** 2 +
+                (self.row - engine.pac_row) ** 2
+            )
 
-            else:
-                min_distance = float("inf")
-                for direction in valid_moves:
-                    dc, dr = DIRECTION_DELTAS[direction]
+            for direction in valid_moves:
+                dc, dr = DIRECTION_DELTAS[direction]
 
-                    next_col = self.col + dc
-                    next_row = self.row + dr
+                next_col = self.col + dc
+                next_row = self.row + dr
 
-                    dist = self._bfs_distance(
-                        next_col,
-                        next_row,
-                        self.target_col,
-                        self.target_row,
-                        engine
+                dist = self._bfs_distance(
+                    next_col,
+                    next_row,
+                    self.target_col,
+                    self.target_row,
+                    engine
+                )
+
+                # Fall back to Euclidean distance if ghost is walled off
+                if dist == float("inf"):
+                    col_dist = (next_col - self.target_col) ** 2
+                    row_dist = (next_row - self.target_row) ** 2
+
+                    # No square root to avoid unnecessary computation
+                    dist = float(col_dist + row_dist)
+
+                if self.state == "FRIGHTENED":
+                    # Distance to pac-man from next position
+                    next_to_pac = (
+                        (next_col - engine.pac_col) ** 2 +
+                        (next_row - engine.pac_row) ** 2
                     )
 
-                    # Fall back to Euclidean distance if ghost is walled off
-                    if dist == float("inf"):
-                        col_dist = (next_col - self.target_col) ** 2
-                        row_dist = (next_row - self.target_row) ** 2
+                    # Apply heavy penalty for approaching pac-man
+                    if next_to_pac < curr_to_pac:
+                        dist += 100.0
 
-                        # No square root to avoid unnecessary computation
-                        dist = float(col_dist + row_dist)
-
-                    if dist < min_distance:
-                        min_distance = dist
-                        best_choice = direction
+                if dist < min_distance:
+                    min_distance = dist
+                    best_choice = direction
 
             if best_choice:
                 self.current_dir = best_choice
