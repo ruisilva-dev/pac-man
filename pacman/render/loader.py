@@ -58,6 +58,7 @@ class AssetLoader:
         """
         self.themes_root: str = themes_root
         self._cache: dict[str, ThemeAssets] = {}
+        self._ui_cache: dict[str, pygame.Surface] = {}
 
     def load(self, theme: str) -> ThemeAssets:
         """Returns assets for a theme, loading and caching on first use.
@@ -87,6 +88,19 @@ class AssetLoader:
                     self._load_theme(FALLBACK_THEME)
                 )
             return self._cache[FALLBACK_THEME]
+
+    def load_ui_icon(self, path: str) -> pygame.Surface:
+        """Loads and caches a standalone UI icon, scaled to CELL_SIZE.
+
+        Args:
+            path: File system location of the image.
+
+        Returns:
+            The scaled surface from cache.
+        """
+        if path not in self._ui_cache:
+            self._ui_cache[path] = self._load_single(path, alpha=True)
+        return self._ui_cache[path]
 
     def _slice_sheet(self, path: str) -> list[pygame.Surface]:
         """Loads a horizontal sprite sheet and slices it into frames.

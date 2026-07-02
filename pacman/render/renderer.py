@@ -1,6 +1,7 @@
 import pygame
 from pacman.engine import PacmanEngine
 from pacman.render.loader import AssetLoader, ThemeAssets
+from pacman.render.animator import Animator
 from pacman.constants import (
     DIRECTION_DELTAS,
     DIRECTION_BITS,
@@ -14,6 +15,8 @@ from pacman.constants import (
     SUPERPACGUM_ANIM_INTERVAL,
     HUD_BAR_H,
     GHOST_COLORS,
+    ARCADE_W,
+    ARCADE_H
 )
 
 # HUD text color
@@ -39,19 +42,14 @@ class GameRenderer:
         cols: Total column count of the grid.
         world_width: World surface width in pixels (maze only).
         world_height: World surface height in pixels (maze only).
-        world_surface: Render target holding the maze and actors.
-        ghost_anim_index: Current visual frame index for ghost animation.
-        ghost_anim_timer: Frame pacing accumulator for ghosts.
-        pac_anim_index: Current visual frame index for Pac-Man movement.
-        pac_anim_timer: Frame pacing accumulator for Pac-Man.
-        death_anim_index: Current visual frame index for the death sequence.
-        death_anim_timer: Frame pacing accumulator for the death sequence.
-        superpacgum_anim_index: Visual frame index for power pellets.
-        superpacgum_anim_timer: Frame pacing accumulator for power pellets.
-        superpacgum_wait_timer: Pause duration between pellet flashes.
+        world_surface: Render target holding the maze and actors.\
         font: HUD text font.
         assets: The currently active theme's sprite container.
         background_surface: Pre-rendered static maze layer.
+        pac_anim: Frame pacing utility for Pac-Man's movement sequence.
+        death_anim: Frame pacing utility for Pac-Man's death sequence.
+        ghost_anim: Frame pacing utility for the ghosts' wobble animations.
+        pacgum_anim: Frame pacing utility for the Super Pacgum animations.
     """
 
     def __init__(
@@ -80,25 +78,32 @@ class GameRenderer:
             (self.world_width, self.world_height)
         )
 
-        # Rendering state - animation timers and frame indices
-        self.ghost_anim_index: int = 0
-        self.ghost_anim_timer: float = 0.0
-        self.pac_anim_index: int = 0
-        self.pac_anim_timer: float = 0.0
-        self.death_anim_index: int = 0
-        self.death_anim_timer: float = 0.0
-        self.superpacgum_anim_index: int = 0
-        self.superpacgum_anim_timer: float = 0.0
-        self.superpacgum_wait_timer: float = 0.0
-
         self.font: pygame.font.Font = pygame.font.SysFont(
             "monospace", 20, bold=True
+        )
+
+        # Instantiate animators
+        self.pac_anim = Animator(PAC_ANIM_SPEED, PAC_ANIM_FRAMES)
+        self.death_anim = Animator(PAC_DEATH_ANIM_SPEED, PAC_DEATH_FRAMES)
+        # Give placeholder values since set_theme will update them
+        self.ghost_anim = Animator(GHOST_ANIM_FPS, 1)
+        self.superpacgum_anim = Animator(
+            SUPERPACGUM_ANIM_FPS, 1, SUPERPACGUM_ANIM_INTERVAL
         )
 
         # Bind initial theme; this also renders the background.
         self.assets: ThemeAssets
         self.background_surface: pygame.Surface
         self.set_theme(theme)
+        self.img_freeze: pygame.Surface = self.loader.load_ui_icon(
+            "pacman/assets/textures/freeze.png"
+        )
+        self.img_imortal: pygame.Surface = self.loader.load_ui_icon(
+            "pacman/assets/textures/imortal.png"
+        )
+        self.img_speed: pygame.Surface = self.loader.load_ui_icon(
+            "pacman/assets/textures/speed.png"
+        )
 
     def set_theme(self, theme: str) -> None:
         """Switches the active theme and re-renders the static maze.
@@ -122,11 +127,16 @@ class GameRenderer:
             (self.world_width, self.world_height)
         )
 
-        self.superpacgum_anim_index = 0
-        self.superpacgum_anim_timer = 0.0
-        self.superpacgum_wait_timer = 0.0
-
         self._render_background()
+
+        # Update existing animators to match the loaded theme asset lengths
+        self.ghost_anim.frame_count = len(self.assets.scatter_frames)
+        self.ghost_anim.current_frame %= self.ghost_anim.frame_count
+
+        self.superpacgum_anim.frame_count = len(self.assets.superpacgum_frames)
+        self.superpacgum_anim.current_frame %= (
+            self.superpacgum_anim.frame_count
+        )
 
     def cell_pos(self, col: int, row: int) -> tuple[int, int]:
         """Calculates top-left world pixel position for a grid cell.
@@ -227,34 +237,22 @@ class GameRenderer:
         y: int = int(y_start + (y_end - y_start) * progress)
         return (x, y)
 
-    def _update_pac_anim(self, dt: float) -> None:
-        """Advances the Pac-Man movement animation frame.
-
-        Args:
-            dt: Delta time in seconds since the last frame.
-        """
-        self.pac_anim_timer += dt * PAC_ANIM_SPEED
-        if self.pac_anim_timer >= 1.0:
-            self.pac_anim_timer -= 1.0
-            self.pac_anim_index = (
-                (self.pac_anim_index + 1) % PAC_ANIM_FRAMES
-            )
-
     def draw_pacman(self, dt: float) -> None:
         """Interpolates pixel points and draws the player onto the world.
 
         Args:
             dt: Delta time in seconds since the last frame.
         """
-        self._update_pac_anim(dt)
+        self.pac_anim.update(dt)
         x, y = self._interp_pos(
-            self.engine.pac_col,
-            self.engine.pac_row,
-            self.engine.pac_dir,
-            self.engine.pac_move_progress,
+            self.engine.player.col,
+            self.engine.player.row,
+            self.engine.player.current_dir,
+            self.engine.player.move_progress,
         )
+        pac_curr_dir: str = self.engine.player.current_dir
         frame: pygame.Surface = (
-            self.assets.pac_frames[self.engine.pac_dir][self.pac_anim_index]
+            self.assets.pac_frames[pac_curr_dir][self.pac_anim.current_frame]
         )
         self.world_surface.blit(frame, (x, y))
 
@@ -265,20 +263,7 @@ class GameRenderer:
             dt: Delta time in seconds since the last frame.
         """
         from pacman.items import SuperPacgum
-
-        # Advance the super pacgum animation (with wait between cycles)
-        if self.superpacgum_wait_timer > 0.0:
-            self.superpacgum_wait_timer -= dt
-        else:
-            self.superpacgum_anim_timer += dt * SUPERPACGUM_ANIM_FPS
-            if self.superpacgum_anim_timer >= 1.0:
-                self.superpacgum_anim_timer = 0.0
-                self.superpacgum_anim_index = (
-                    (self.superpacgum_anim_index + 1)
-                    % len(self.assets.superpacgum_frames)
-                )
-                if self.superpacgum_anim_index == 0:
-                    self.superpacgum_wait_timer = SUPERPACGUM_ANIM_INTERVAL
+        self.superpacgum_anim.update(dt)
 
         for row_idx, row in enumerate(self.engine.items):
             for col_idx, item in enumerate(row):
@@ -288,7 +273,7 @@ class GameRenderer:
                 if isinstance(item, SuperPacgum):
                     self.world_surface.blit(
                         self.assets.superpacgum_frames[
-                            self.superpacgum_anim_index
+                            self.superpacgum_anim.current_frame
                         ],
                         (x, y)
                     )
@@ -303,14 +288,7 @@ class GameRenderer:
         Args:
             dt: Delta time in seconds since the last frame.
         """
-        # Advance the shared ghost animation
-        self.ghost_anim_timer += dt * GHOST_ANIM_FPS
-        if self.ghost_anim_timer >= 1.0:
-            self.ghost_anim_timer -= 1.0
-            self.ghost_anim_index = (
-                (self.ghost_anim_index + 1)
-                % len(self.assets.scatter_frames)
-            )
+        self.ghost_anim.update(dt)
 
         for i, ghost in enumerate(self.engine.ghosts):
             x, y = self._interp_pos(
@@ -318,21 +296,22 @@ class GameRenderer:
             )
 
             if ghost.state == "FRIGHTENED":
-                frame = self.assets.scatter_frames[self.ghost_anim_index]
+                frame = self.assets.scatter_frames[
+                    self.ghost_anim.current_frame
+                ]
             elif ghost.state == "EATEN":
                 frame = self.assets.eaten_sprite
             else:
                 color = GHOST_COLORS[i % len(GHOST_COLORS)]
                 frame = self.assets.ghost_frames[color][ghost.current_dir][
-                    self.ghost_anim_index
+                    self.ghost_anim.current_frame
                 ]
 
             self.world_surface.blit(frame, (x, y))
 
     def start_death(self) -> None:
         """Resets the death animation to its first frame."""
-        self.death_anim_index = 0
-        self.death_anim_timer = 0.0
+        self.death_anim.reset()
 
     def draw_death(self, dt: float) -> None:
         """Advances and draws the death animation onto the world.
@@ -341,24 +320,19 @@ class GameRenderer:
             dt: Delta time in seconds since the last frame.
         """
         x, y = self._interp_pos(
-            self.engine.pac_col,
-            self.engine.pac_row,
-            self.engine.pac_dir,
-            self.engine.pac_move_progress,
+            self.engine.player.col,
+            self.engine.player.row,
+            self.engine.player.current_dir,
+            self.engine.player.move_progress,
         )
 
-        self.death_anim_timer += dt * PAC_DEATH_ANIM_SPEED
-        if self.death_anim_timer >= 1.0:
-            self.death_anim_timer -= 1.0
-            self.death_anim_index += 1
-            if self.death_anim_index >= PAC_DEATH_FRAMES:
-                self.death_anim_index = 0
-                self.engine.finish_death()
-                return
+        if self.death_anim.update(dt):
+            self.engine.finish_death()
+            return
 
         frame = (
-            self.assets.death_frames[self.engine.pac_dir][
-                self.death_anim_index
+            self.assets.death_frames[self.engine.player.current_dir][
+                self.death_anim.current_frame
             ]
         )
         self.world_surface.blit(frame, (x, y))
@@ -412,3 +386,25 @@ class GameRenderer:
             midright=(target_w - CELL_SIZE // 4, bottom_y + HUD_BAR_H // 2)
         )
         target.blit(score_text, score_rect)
+        icon_size = self.img_imortal.get_width()  # Será 48 (CELL_SIZE)
+        spacing = 16  # Espaço horizontal entre os ícones
+        total_w = (3 * icon_size) + (2 * spacing)
+
+        # Centralizar horizontalmente no ecrã do arcade
+        start_x = (ARCADE_W - total_w) // 2
+
+        # Centralizar verticalmente dentro do espaço da barra preta inferior
+        start_y = (ARCADE_H - HUD_BAR_H) + (HUD_BAR_H - icon_size) // 2
+
+        # Mapeamento com base no estado atual da engine (self.engine)
+        cheats = [
+            (self.img_freeze, self.engine.cheat_freeze, 0),
+            (self.img_imortal, self.engine.cheat_invincible, 1),
+            (self.img_speed, self.engine.cheat_speed, 2)
+        ]
+
+        for img, is_active, index in cheats:
+            if is_active:
+                # Desenha o ícone fixo sem qualquer verificação de tempo/piscar
+                x_pos = start_x + index * (icon_size + spacing)
+                target.blit(img, (x_pos, start_y))
