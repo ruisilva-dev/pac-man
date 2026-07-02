@@ -1,15 +1,16 @@
 from pacman.scenes.base import Scene
-from pacman.game import Game
-from pacman.constants import ARCADE_W, ARCADE_H, BG_COLOR
+from pacman.scenes.overlay import OverlayScene
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pacman.game import Game
+from pacman.constants import ARCADE_W, ARCADE_H
 import pygame
 
 
-class InstructionsScene(Scene):
+class InstructionsScene(OverlayScene):
     """Displays movement keys, cheat hotkeys, and game mechanics rules.
 
     Attributes:
-        game: Back-reference to the coordinating Game.
-        previous_scene: The caller scene to return to upon exiting.
         title_font: Font used for the main screen heading.
         info_font: Font used for the instruction list and descriptions.
         hint_font: Font used for the bottom navigation hints.
@@ -18,8 +19,7 @@ class InstructionsScene(Scene):
     TITLE_COLOR: tuple[int, int, int] = (255, 255, 0)  # Yellow
 
     def __init__(self, game: "Game", previous_scene: Scene) -> None:
-        super().__init__(game)
-        self.previous_scene: Scene = previous_scene
+        super().__init__(game, previous_scene)
 
         self.title_font: pygame.font.Font = pygame.font.SysFont(
             "monospace", 56, bold=True
@@ -51,31 +51,20 @@ class InstructionsScene(Scene):
         Args:
             target: The arcade rendering surface layout coordinate canvas.
         """
-        # See if previous scene has a game_scene reference
-        if (
-            hasattr(self.previous_scene, "game_scene") and
-            hasattr(self.previous_scene, "overlay")
-        ):
-            # Render the frozen underlying gameplay state frame
-            self.previous_scene.game_scene.draw(target)
-            # Re-use the existing pause translucent overlay surface layer
-            target.blit(self.previous_scene.overlay, (0, 0))
-        else:
-            # Fall back to a solid black backdrop if opened from the main menu
-            target.fill(BG_COLOR)
+        self.draw_background(target)
 
         # Draw Title
         title = self.title_font.render("INSTRUCTIONS", True, (255, 255, 0))
-        title_rect = title.get_rect(center=(ARCADE_W // 2, 140))
+        title_rect = title.get_rect(center=(ARCADE_W // 2, 120))
         target.blit(title, title_rect)
 
         # Instructions
         lines: list[str] = [
             "ARROWS : Move Pac-Man",
             "ESC : Pause Gameplay",
-            "F1 : Toggle Invincibility",
+            "F1 : Freeze All Ghosts",
             "F2 : Instantly Skip Current Level",
-            "F3 : Freeze All Ghosts",
+            "F3 : Toggle Invincibility",
             "F4 : Increment +1 Extra Life",
             "F5 : Double Movement Speed",
         ]

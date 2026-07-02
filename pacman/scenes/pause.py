@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 import pygame
-from pacman.scenes.base import Scene
+from pacman.scenes.overlay import OverlayScene
 from pacman.constants import ARCADE_W, ARCADE_H
 from pacman.scenes.game_scene import GameScene
 
@@ -14,7 +14,7 @@ ITEM_COLOR: tuple[int, int, int] = (255, 255, 255)
 ITEM_SELECTED_COLOR: tuple[int, int, int] = (255, 255, 0)
 
 
-class PauseScene(Scene):
+class PauseScene(OverlayScene):
     """Pause overlay drawn on top of a frozen gameplay scene.
 
     Holds the GameScene it suspended so it can render that scene's last
@@ -22,13 +22,11 @@ class PauseScene(Scene):
     either resume or quit back to the main menu.
 
     Attributes:
-        game: Back-reference to the coordinating Game.
         game_scene: The suspended gameplay scene shown underneath.
         options: The pause menu options.
         selected: Index of the highlighted option.
         title_font: Font for the PAUSED label.
         item_font: Font for the options.
-        overlay: Pre-built translucent dimming surface.
     """
 
     def __init__(self, game: "Game", game_scene: GameScene) -> None:
@@ -38,7 +36,7 @@ class PauseScene(Scene):
             game: The coordinating Game instance.
             game_scene: The gameplay scene being paused.
         """
-        super().__init__(game)
+        super().__init__(game, game_scene)
         self.game_scene: GameScene = game_scene
         self.options: list[str] = [
             "Resume", "Restart Game", "Instructions", "Options", "Quit to Menu"
@@ -53,6 +51,7 @@ class PauseScene(Scene):
         self.overlay: pygame.Surface = pygame.Surface((ARCADE_W, ARCADE_H))
         self.overlay.fill(OVERLAY_COLOR)
         self.overlay.set_alpha(OVERLAY_ALPHA)
+        self.game.audio.pause_music()
 
     def handle_event(self, event: pygame.event.Event) -> None:
         """Navigates the pause menu and activates the choice.
@@ -65,28 +64,27 @@ class PauseScene(Scene):
 
         if event.key == pygame.K_ESCAPE:
             # Escape is a shortcut to resume.
+            self.game.audio.unpause_music()
             self.game.change_scene(self.game_scene)
         elif event.key == pygame.K_UP:
             self.selected = (self.selected - 1) % len(self.options)
+            self.game.audio.play_sfx("menu_nav1.wav", is_global=True)
         elif event.key == pygame.K_DOWN:
             self.selected = (self.selected + 1) % len(self.options)
+            self.game.audio.play_sfx("menu_nav1.wav", is_global=True)
         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
             self._activate()
 
     def _activate(self) -> None:
         """Performs the highlighted pause action."""
         if self.options[self.selected] == "Resume":
+            self.game.audio.unpause_music()
             self.game.change_scene(self.game_scene)
         elif self.options[self.selected] == "Restart Game":
-            engine = self.game_scene.engine
-
-            engine.level = 1
-            engine.score = 0
-            engine.lives = self.game.config.lives
-            engine.level_timer = 90.0
-
-            engine._build_level(seed=self.game.config.seed)
-            self.game_scene.renderer.set_theme(self.game.config.theme)
+            self.game.audio.stop_music()
+            self.game_scene.engine.restart()
+            self.game_scene.sync_theme()
+            self.game.audio.play_music("song.wav", fallback="song.wav")
             self.game.change_scene(self.game_scene)
         elif self.options[self.selected] == "Instructions":
             from pacman.scenes.instructions import InstructionsScene
@@ -95,8 +93,10 @@ class PauseScene(Scene):
             from pacman.scenes.options import OptionsScene
             self.game.change_scene(OptionsScene(self.game, self))
         else:
+            self.game.audio.stop_music()
             from pacman.scenes.menu import MenuScene
             self.game.change_scene(MenuScene(self.game))
+        self.game.audio.play_sfx("menu_confirm.wav", is_global=True)
 
     def update(self, dt: float) -> None:
         """Does nothing; gameplay is frozen while paused.
@@ -112,8 +112,7 @@ class PauseScene(Scene):
         Args:
             target: The arcade surface to draw onto.
         """
-        self.game_scene.draw(target)
-        target.blit(self.overlay, (0, 0))
+        self.draw_background(target)
 
         title = self.title_font.render("PAUSED", True, TITLE_COLOR)
         title_rect = title.get_rect(

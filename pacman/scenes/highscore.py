@@ -15,7 +15,6 @@ class HighScoreScene(Scene):
     """Displays the top-ten leaderboard read from the highscore manager.
 
     Attributes:
-        game: Back-reference to the coordinating Game.
         title_font: Font for the heading.
         entry_font: Font for each score row.
         hint_font: Font for the return hint.
