@@ -17,7 +17,6 @@ class Ghost:
         row: Active discrete Y-axis block coordinate inside the maze.
         home_col: X-axis spawn and respawn anchor block coordinate.
         home_row: Y-axis spawn and respawn anchor block coordinate.
-        ghost_id: Integer identifier profiling individual routing AI.
         move_progress: Interpolation progress tracking bounded between
             0.0 and 1.0.
         start_dir: Cardinal heading assigned at session initialization.
@@ -38,7 +37,6 @@ class Ghost:
         row: int,
         home_col: int,
         home_row: int,
-        ghost_id: int,
         start_dir: str = "N"
     ) -> None:
         """Initializes a ghost instance with routing boundaries.
@@ -48,14 +46,12 @@ class Ghost:
             row: Starting Y-axis grid layout coordinate slot.
             home_col: Default target home anchor X-axis tile.
             home_row: Default target home anchor Y-axis tile.
-            ghost_id: Integer mapping used to select behavioral profiles.
             start_dir: Initial cardinal heading character selection.
         """
         self.col: int = col
         self.row: int = row
         self.home_col: int = home_col
         self.home_row: int = home_row
-        self.ghost_id: int = ghost_id
         self.move_progress: float = 0.0
         self.start_dir: str = start_dir
         self.current_dir: str = start_dir
@@ -66,48 +62,16 @@ class Ghost:
         self.state_timer: float = 0.0
         self.eaten_speed: float = 0.0
 
-    def _bfs_distance(
-        self,
-        start_c: int,
-        start_r: int,
-        target_c: int,
-        target_r: int,
-        engine: "PacmanEngine"
-    ) -> float:
-        """Evaluates shortest legal path distance using a BFS.
+    def get_chase_target(self, engine: "PacmanEngine") -> tuple[int, int]:
+        """Calculates the specific chase destination tile for this ghost type.
 
         Args:
-            start_c: Column index of the starting evaluation coordinate.
-            start_r: Row index of the starting evaluation coordinate.
-            target_c: Column index of the destination target node.
-            target_r: Row index of the destination target node.
             engine: Shared reference to the central core logic driver.
 
         Returns:
-            The total path distance step count, or float("inf") if blocked.
+            A tuple containing the target (column, row) indices.
         """
-        if start_c == target_c and start_r == target_r:
-            return 0.0
-
-        queue: list[tuple[int, int, float]] = [(start_c, start_r, 0.0)]
-        visited: set[tuple[int, int]] = {(start_c, start_r)}
-
-        while queue:
-            curr_c, curr_r, dist = queue.pop(0)
-            for direction in DIRECTION_DELTAS:
-                if engine.can_move(curr_c, curr_r, direction):
-                    dc, dr = DIRECTION_DELTAS[direction]
-
-                    next_c = curr_c + dc
-                    next_r = curr_r + dr
-
-                    if next_c == target_c and next_r == target_r:
-                        return dist + 1.0
-                    elif (next_c, next_r) not in visited:
-                        visited.add((next_c, next_r))
-                        queue.append((next_c, next_r, dist + 1.0))
-
-        return float("inf")
+        return self.home_col, self.home_row  # Default fallback
 
     def reset(self) -> None:
         """Resets the ghost entity to initial spawn parameters."""
@@ -148,43 +112,7 @@ class Ghost:
 
         # Target coordinate recalculation
         if self.state == "CHASE":
-            if self.ghost_id == 0:
-                # Blinky: Chase directly
-                self.target_col = engine.pac_col
-                self.target_row = engine.pac_row
-
-            elif self.ghost_id == 1:
-                # Pinky: Ambush 4 tiles ahead of Pac-Man's trajectory vector
-                dc, dr = DIRECTION_DELTAS[engine.pac_dir]
-                raw_c: int = engine.pac_col + (dc * 4)
-                raw_r: int = engine.pac_row + (dr * 4)
-
-                # Clamp inside maze boundaries
-                self.target_col = max(0, min(raw_c, engine.grid_cols - 1))
-                self.target_row = max(0, min(raw_r, engine.grid_rows - 1))
-
-            elif self.ghost_id == 2:
-                # Clyde: Flee back to corner if within 8-tile radius threshold
-                dx: int = engine.pac_col - self.col
-                dy: int = engine.pac_row - self.row
-                distance_squared = (dx * dx) + (dy * dy)
-
-                if distance_squared > 64:  # 8 tiles squared = 64
-                    self.target_col = engine.pac_col
-                    self.target_row = engine.pac_row
-                else:
-                    self.target_col = self.home_col
-                    self.target_row = self.home_row
-
-            elif self.ghost_id == 3:
-                # Inky: Mirror offset tactic over Blinky's coordinates
-                blinky: Ghost = engine.ghosts[0]
-                raw_c = engine.pac_col + (engine.pac_col - blinky.col)
-                raw_r = engine.pac_row + (engine.pac_row - blinky.row)
-
-                # Clamp inside maze boundaries
-                self.target_col = max(0, min(raw_c, engine.grid_cols - 1))
-                self.target_row = max(0, min(raw_r, engine.grid_rows - 1))
+            self.target_col, self.target_row = self.get_chase_target(engine)
 
         elif self.state == "FRIGHTENED":
             # Target furthest corner away from pac-man
@@ -198,7 +126,7 @@ class Ghost:
             flee_target: tuple[int, int] = (self.home_col, self.home_row)
             for c, r in corners:
                 dist: float = float(
-                    (c - engine.pac_col) ** 2 + (r - engine.pac_row) ** 2
+                    (c - engine.player.col) ** 2 + (r - engine.player.row) ** 2
                 )
                 if dist > max_dist:
                     max_dist = dist
@@ -217,8 +145,8 @@ class Ghost:
 
         # Calculate dynamic speed
         if self.state == "EATEN":
-            dist_left = self._bfs_distance(
-                self.col, self.row, self.home_col, self.home_row, engine
+            dist_left = engine.get_path_distance(
+                self.col, self.row, self.home_col, self.home_row
             )
             if dist_left == float("inf"):
                 dist_col = abs(self.col - self.home_col)
@@ -267,8 +195,8 @@ class Ghost:
 
             # Current distance to pac-man
             curr_to_pac: int = (
-                (self.col - engine.pac_col) ** 2 +
-                (self.row - engine.pac_row) ** 2
+                (self.col - engine.player.col) ** 2 +
+                (self.row - engine.player.row) ** 2
             )
 
             for direction in valid_moves:
@@ -277,12 +205,11 @@ class Ghost:
                 next_col = self.col + dc
                 next_row = self.row + dr
 
-                dist = self._bfs_distance(
+                dist = engine.get_path_distance(
                     next_col,
                     next_row,
                     self.target_col,
                     self.target_row,
-                    engine
                 )
 
                 # Fall back to Euclidean distance if ghost is walled off
@@ -296,8 +223,8 @@ class Ghost:
                 if self.state == "FRIGHTENED":
                     # Distance to pac-man from next position
                     next_to_pac = (
-                        (next_col - engine.pac_col) ** 2 +
-                        (next_row - engine.pac_row) ** 2
+                        (next_col - engine.player.col) ** 2 +
+                        (next_row - engine.player.row) ** 2
                     )
 
                     # Apply heavy penalty for approaching pac-man
@@ -310,3 +237,94 @@ class Ghost:
 
             if best_choice:
                 self.current_dir = best_choice
+
+
+class Blinky(Ghost):
+    """The Red Ghost: Aggressively chases Pac-Man's exact tile coordinates."""
+
+    def get_chase_target(self, engine: "PacmanEngine") -> tuple[int, int]:
+        """Calculates the target tile by matching the player's position.
+
+        Args:
+            engine: Shared reference to the central game logic driver.
+
+        Returns:
+            A tuple containing the target (column, row) grid indices.
+        """
+        return (engine.player.col, engine.player.row)
+
+
+class Pinky(Ghost):
+    """The Pink Ghost: Ambushes 4 tiles ahead of Pac-Man's trajectory."""
+
+    def get_chase_target(self, engine: "PacmanEngine") -> tuple[int, int]:
+        """Calculates the target tile by projecting ahead of the player.
+
+        Args:
+            engine: Shared reference to the central game logic driver.
+
+        Returns:
+            A tuple containing the target (column, row) grid indices.
+        """
+        dc, dr = DIRECTION_DELTAS[engine.player.current_dir]
+        raw_c: int = engine.player.col + (dc * 4)
+        raw_r: int = engine.player.row + (dr * 4)
+
+        # Clamp inside maze boundaries safely
+        target_col: int = max(0, min(raw_c, engine.grid_cols - 1))
+        target_row: int = max(0, min(raw_r, engine.grid_rows - 1))
+
+        return (target_col, target_row)
+
+
+class Clyde(Ghost):
+    """The Orange Ghost: Flees to its corner if too close to Pac-Man."""
+
+    def get_chase_target(self, engine: "PacmanEngine") -> tuple[int, int]:
+        """Calculates the target tile based on proximity to the player.
+
+        Args:
+            engine: Shared reference to the central game logic driver.
+
+        Returns:
+            A tuple containing the target (column, row) grid indices.
+        """
+        dx: int = engine.player.col - self.col
+        dy: int = engine.player.row - self.row
+        distance_squared: int = (dx * dx) + (dy * dy)
+
+        # Chase if outside an 8-tile radius, otherwise retreat to home corner
+        if distance_squared > 64:
+            target_col: int = engine.player.col
+            target_row: int = engine.player.row
+        else:
+            target_col = self.home_col
+            target_row = self.home_row
+
+        return (target_col, target_row)
+
+
+class Inky(Ghost):
+    """The Blue Ghost: Mirrors a position offset from Blinky's coordinates."""
+
+    def get_chase_target(self, engine: "PacmanEngine") -> tuple[int, int]:
+        """Calculates the target tile using Blinky as a mirrored pivot point.
+
+        Args:
+            engine: Shared reference to the central game logic driver.
+
+        Returns:
+            A tuple containing the target (column, row) grid indices.
+        """
+        # Blinky is guaranteed to be the first ghost spawned in the engine list
+        blinky: Ghost = engine.ghosts[0]
+
+        # Calculate offset vector from Blinky to Pac-Man, and extend it
+        raw_c: int = engine.player.col + (engine.player.col - blinky.col)
+        raw_r: int = engine.player.row + (engine.player.row - blinky.row)
+
+        # Clamp inside maze boundaries safely
+        target_col: int = max(0, min(raw_c, engine.grid_cols - 1))
+        target_row: int = max(0, min(raw_r, engine.grid_rows - 1))
+
+        return (target_col, target_row)

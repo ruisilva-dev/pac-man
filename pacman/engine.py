@@ -1,15 +1,15 @@
 from mazegenerator import MazeGenerator
+from pacman.player import Player
 from pacman.config import Configuration
-from pacman.items import Consumable, Pacgum, SuperPacgum
-from pacman.ghosts import Ghost
+from pacman.items import Pacgum, SuperPacgum
+from pacman.ghosts import Ghost, Blinky, Pinky, Clyde, Inky
 from pacman.constants import (
-    PAC_SPEED,
     COLLISION_DISTANCE,
-    OPPOSITE_DIR,
-    PAC_INPUT_BUFFER,
+    PAC_START_PAUSE,
     PAC_RESPAWN_PAUSE,
     DIRECTION_DELTAS,
     DIRECTION_BITS,
+    EXTRA_LIFE_SCORE
 )
 
 
@@ -34,16 +34,7 @@ class PacmanEngine:
         grid: Two-dimensional matrix representing active map cell encodings.
         grid_rows: Total integer row count of the active simulation space.
         grid_cols: Total integer column count of the active simulation space.
-        pac_home_col: Origin spawn X-axis coordinate for the player.
-        pac_home_row: Origin spawn Y-axis coordinate for the player.
-        pac_col: Active discrete X-axis block coordinate of the player.
-        pac_row: Active discrete Y-axis block coordinate of the player.
-        pac_dir: Active cardinal character direction of player movement.
-        pac_next_dir: Buffered target direction requested by user hardware.
-        pac_next_dir_timer: Tracked lifecycle age of the buffered input.
-        pac_move_progress: Interpolation progress float bounded between
-            0.0 and 1.0.
-        pac_dying: Status flag signaling the player is currently dying.
+        player: Isolated tracking entity instance modeling Pac-Man properties.
         items: Two-dimensional layout matrix tracking active collectibles.
         ghosts: Active list of autonomous ghost entities.
     """
@@ -65,82 +56,49 @@ class PacmanEngine:
         self.cheat_invincible: bool = False
         self.cheat_freeze: bool = False
         self.cheat_speed: bool = False
+        # Arcade milestones
+        self.bonus_life_awarded: bool = False
 
         self._build_level(seed=config.seed)
 
-    def _build_level(self, seed: int = 0) -> None:
-        """Generates the maze matrix and populates all entities and items.
+    def _get_level_metrics(self) -> tuple[float, tuple[int, int], float]:
+        """Retrieves ghost speed, grid size, and timer based on level stage.
 
-        Args:
-            seed: Optional integer to dictate deterministic map layouts.
+        Returns:
+            A tuple containing the ghost speed (float), target grid dimensions
+            (tuple of width and height ints), and the level time limit (float).
         """
-        # Ghost speed mapping
         level_speeds: dict[int, float] = {
-            1: 3.6,  2: 3.6,
-            3: 3.8,  4: 3.8,
-            5: 4.0,  6: 4.0,
-            7: 4.2,  8: 4.2,
-            9: 4.5,  10: 4.5
+            1: 3.6, 2: 3.6, 3: 3.8, 4: 3.8, 5: 4.0,
+            6: 4.0, 7: 4.2, 8: 4.2, 9: 4.5, 10: 4.5
         }
-        self.ghost_speed = level_speeds.get(self.level, 4.5)
-
         level_sizes: dict[int, tuple[int, int]] = {
-            1: (15, 15),  2: (15, 15),
-            3: (15, 15),  4: (15, 15),
-            5: (17, 17),  6: (17, 17),
-            7: (17, 17),  8: (17, 17),
-            9: (19, 19),  10: (19, 19)
+            1: (15, 15), 2: (15, 15), 3: (15, 15), 4: (15, 15), 5: (17, 17),
+            6: (17, 17), 7: (17, 17), 8: (17, 17), 9: (19, 19), 10: (19, 19)
         }
-        target_size = level_sizes.get(self.level, (19, 19))
-
         level_timers: dict[int, float] = {
-            1: 105.0,  2: 105.0,
-            3: 105.0,  4: 105.0,
-            5: 145.0,  6: 145.0,
-            7: 145.0,  8: 145.0,
-            9: 180.0,  10: 180.0
+            1: 105.0, 2: 105.0, 3: 105.0, 4: 105.0, 5: 145.0,
+            6: 145.0, 7: 145.0, 8: 145.0, 9: 180.0, 10: 180.0
         }
-        self.level_timer = level_timers.get(self.level, 145.0)
 
-        generator: MazeGenerator = MazeGenerator(
-            size=target_size,
-            perfect=False,
-            seed=seed
+        return (
+            level_speeds.get(self.level, 4.5),
+            level_sizes.get(self.level, (19, 19)),
+            level_timers.get(self.level, 180.0)
         )
 
-        self.grid: list[list[int]] = generator.maze
-        self.grid_rows: int = len(self.grid)
-        self.grid_cols: int = (
-            len(self.grid[0]) if self.grid_rows > 0 else 0
-        )
-
-        # Establish starting coordinate slots within central safe pathways
-        posy: int = (self.grid_rows - 5) // 2
-        posx: int = (self.grid_cols - 7) // 2
-        self.pac_home_col: int = posx + 3
-        self.pac_home_row: int = posy + 2
-
-        self.pac_col: int = self.pac_home_col
-        self.pac_row: int = self.pac_home_row
-
-        self.pac_dir: str = 'E'
-        self.pac_next_dir: str = self.pac_dir
-        self.pac_next_dir_timer: float = 0.0
-        self.pac_move_progress: float = 0.0
-        # Establishes if pacman is dead or alive
-        self.pac_dying: bool = False
-        # Initialize the item layout matrix to track active collectibles
-        self.items: list[list[Consumable | None]] = [
+    def _spawn_items(self) -> None:
+        """Populates the maze corridors with pacgums and super pacgums."""
+        self.items = [
             [
                 Pacgum(self.config.points_per_pacgum)
-                if val < 15 and (r_idx + c_idx) % 4 != 0 else None
-                for c_idx, val in enumerate(row)
+                if val in (3, 5, 6, 7, 9, 10, 11, 12, 13, 14) else None
+                for _, val in enumerate(row)
             ]
-            for r_idx, row in enumerate(self.grid)
+            for _, row in enumerate(self.grid)
         ]
-        self.items[self.pac_row][self.pac_col] = None
+        self.items[self.player.row][self.player.col] = None
 
-        # Maze corner mapping: (start_row, start_col, r_step, c_step)
         corners_config: list[tuple[int, int, int, int]] = [
             (0, 0, 1, 1),
             (0, self.grid_cols - 1, 1, -1),
@@ -163,79 +121,44 @@ class PacmanEngine:
                     self.config.points_per_super_pacgum
                 )
 
+    def _spawn_ghosts(self) -> None:
+        """Initializes the four ghosts into their respective map corners."""
         max_c = self.grid_cols - 1
         max_r = self.grid_rows - 1
 
         self.ghosts: list[Ghost] = [
-            Ghost(0, 0, 0, 0, 0, self.get_start_dir(0, 0)),
-            Ghost(max_c, 0, max_c, 0, 1, self.get_start_dir(max_c, 0)),
-            Ghost(0, max_r, 0, max_r, 2, self.get_start_dir(0, max_r)),
-            Ghost(
-                max_c,
-                max_r,
-                max_c,
-                max_r,
-                3,
-                self.get_start_dir(max_c, max_r)
-            )
+            Blinky(0, 0, 0, 0, self.get_start_dir(0, 0)),
+            Pinky(max_c, 0, max_c, 0, self.get_start_dir(max_c, 0)),
+            Clyde(0, max_r, 0, max_r, self.get_start_dir(0, max_r)),
+            Inky(max_c, max_r, max_c, max_r, self.get_start_dir(max_c, max_r))
         ]
 
-    def _update_pacman(self, dt: float) -> None:
-        """Updates player mechanics, coordinate values, and vector timers.
+    def _build_level(self, seed: int = 0) -> None:
+        """Generates the maze matrix and populates all entities and items.
 
         Args:
-            dt: Delta time tracking in seconds since last frame pass.
+            seed: Optional integer to dictate deterministic map layouts.
         """
-        # Expire tracking values within the input queue buffer
-        if self.pac_next_dir != self.pac_dir:
-            self.pac_next_dir_timer += dt
-            if self.pac_next_dir_timer >= PAC_INPUT_BUFFER:
-                self.pac_next_dir = self.pac_dir
-                self.pac_next_dir_timer = 0.0
-        else:
-            self.pac_next_dir_timer = 0.0
+        self.ghost_speed, target_size, self.level_timer = (
+            self._get_level_metrics()
+        )
 
-        # Attempt application of keyboard directional inputs
-        if self.can_move(
-            self.pac_col, self.pac_row, self.pac_next_dir
-        ):
-            is_opposite: bool = (
-                self.pac_next_dir == OPPOSITE_DIR[self.pac_dir]
-            )
-            is_committed: bool = self.pac_move_progress > 0.0
+        generator: MazeGenerator = MazeGenerator(
+            size=target_size, perfect=False, seed=seed
+        )
 
-            if is_opposite and is_committed:
-                # Handle mid-cell rapid direction reversal changes cleanly
-                self.pac_dir = self.pac_next_dir
-                self.pac_move_progress = 1.0 - self.pac_move_progress
-                dc, dr = DIRECTION_DELTAS[OPPOSITE_DIR[self.pac_dir]]
-                self.pac_col += dc
-                self.pac_row += dr
-            elif not is_committed:
-                # Only accept new directions when landing flush on cells
-                self.pac_dir = self.pac_next_dir
+        self.grid: list[list[int]] = generator.maze
+        self.grid_rows: int = len(self.grid)
+        self.grid_cols: int = len(self.grid[0]) if self.grid_rows > 0 else 0
 
-        # Halt sequence instantly if a wall stops forward progression
-        if not self.can_move(self.pac_col, self.pac_row, self.pac_dir):
-            self.pac_move_progress = 0.0
-            return
+        # Establish starting coordinate slots within central safe pathways
+        pos_y: int = (self.grid_rows - 5) // 2
+        pos_x: int = (self.grid_cols - 7) // 2
 
-        # Advance mechanical cell travel interpolation counters
-        speed_factor = 2.0 if self.cheat_speed else 1.0
-        self.pac_move_progress += dt * PAC_SPEED * speed_factor
-        if self.pac_move_progress >= 1.0:
-            self.pac_move_progress = 0.0
+        self.player: Player = Player(pos_x + 3, pos_y + 2)
 
-            # Transfer data records cleanly to the next destination cell
-            dc, dr = DIRECTION_DELTAS[self.pac_dir]
-            self.pac_col += dc
-            self.pac_row += dr
-
-            # Pull the pacgum, increase score, delete reference
-            item = self.items[self.pac_row][self.pac_col]
-            if item is not None:
-                item.on_consume(self)
-                self.items[self.pac_row][self.pac_col] = None
+        self._spawn_items()
+        self._spawn_ghosts()
 
     def _check_collisions(self) -> None:
         """Checks ghost collisions, triggering death or ghost consumption.
@@ -245,9 +168,9 @@ class PacmanEngine:
         when the two are visually overlapping. Each actor's position is
         its cell plus its movement progress along its current direction.
         """
-        pdc, pdr = DIRECTION_DELTAS[self.pac_dir]
-        pac_x: float = self.pac_col + pdc * self.pac_move_progress
-        pac_y: float = self.pac_row + pdr * self.pac_move_progress
+        pdc, pdr = DIRECTION_DELTAS[self.player.current_dir]
+        pac_x: float = self.player.col + pdc * self.player.move_progress
+        pac_y: float = self.player.row + pdr * self.player.move_progress
 
         for ghost in self.ghosts:
             gdc, gdr = DIRECTION_DELTAS[ghost.current_dir]
@@ -266,7 +189,7 @@ class PacmanEngine:
                     continue
 
                 # If caught by ghost marks pacman as dying
-                self.pac_dying = True
+                self.player.is_dying = True
                 return
 
             elif ghost.state == "FRIGHTENED":
@@ -274,6 +197,47 @@ class PacmanEngine:
                 ghost.state = "EATEN"
                 # Set timer and respawn home
                 ghost.state_timer = 5.0
+
+    def get_path_distance(
+        self,
+        start_c: int,
+        start_r: int,
+        target_c: int,
+        target_r: int,
+    ) -> float:
+        """Evaluates shortest legal path distance using a BFS.
+
+        Args:
+            start_c: Column index of the starting evaluation coordinate.
+            start_r: Row index of the starting evaluation coordinate.
+            target_c: Column index of the destination target node.
+            target_r: Row index of the destination target node.
+
+        Returns:
+            The total path distance step count, or float("inf") if blocked.
+        """
+        if start_c == target_c and start_r == target_r:
+            return 0.0
+
+        queue: list[tuple[int, int, float]] = [(start_c, start_r, 0.0)]
+        visited: set[tuple[int, int]] = {(start_c, start_r)}
+
+        while queue:
+            curr_c, curr_r, dist = queue.pop(0)
+            for direction in DIRECTION_DELTAS:
+                if self.can_move(curr_c, curr_r, direction):
+                    dc, dr = DIRECTION_DELTAS[direction]
+
+                    next_c = curr_c + dc
+                    next_r = curr_r + dr
+
+                    if next_c == target_c and next_r == target_r:
+                        return dist + 1.0
+                    elif (next_c, next_r) not in visited:
+                        visited.add((next_c, next_r))
+                        queue.append((next_c, next_r, dist + 1.0))
+
+        return float("inf")
 
     def has_items(self) -> bool:
         """Checks if any consumable pacgums remain in the maze.
@@ -305,13 +269,7 @@ class PacmanEngine:
         """Resets Pacman to its respawn point and decrements 1 life"""
         # Reset pac-man state
         self.lives -= 1
-        self.pac_dying = False
-        self.pac_col = self.pac_home_col
-        self.pac_row = self.pac_home_row
-        self.pac_dir = 'E'
-        self.pac_next_dir = self.pac_dir
-        self.pac_next_dir_timer = 0.0
-        self.pac_move_progress = 0.0
+        self.player.reset_position()
 
         for ghost in self.ghosts:
             ghost.reset()
@@ -338,7 +296,7 @@ class PacmanEngine:
         Args:
             dt: Delta time tracking in seconds since last frame pass.
         """
-        if self.pac_dying:
+        if self.player.is_dying:
             return
         if self.respawn_pause_timer > 0.0:
             self.respawn_pause_timer -= dt
@@ -346,16 +304,18 @@ class PacmanEngine:
 
         if not self.cheat_freeze:
             self.level_timer -= dt
+
         if self.level_timer <= 0.0:
             self.lives -= 1
-
-            current_seed = self.config.seed if self.level == 1 else 0
-            self._build_level(seed=current_seed)
-
+            self.player.is_dying = False
+            self.player.reset_position()
+            for ghost in self.ghosts:
+                ghost.reset()
             self.respawn_pause_timer = PAC_RESPAWN_PAUSE
+            self.level_timer = self._get_level_metrics()[2]
             return
 
-        self._update_pacman(dt)
+        self.player.update(dt, self)
 
         # Tick all ghost routing lookahead cycles forward
         if not self.cheat_freeze:
@@ -364,6 +324,11 @@ class PacmanEngine:
 
         # Check if a grid collision boundary has been tripped
         self._check_collisions()
+
+        # Add extra life at score milestone
+        if self.score >= EXTRA_LIFE_SCORE and not self.bonus_life_awarded:
+            self.lives = min(5, self.lives + 1)
+            self.bonus_life_awarded = True
 
     def activate_frightened_mode(self) -> None:
         """Flips all active ghost states to vulnerable mode."""
@@ -376,3 +341,13 @@ class PacmanEngine:
         """Regenerates the maze layout for subsequent randomized levels."""
         self.level += 1
         self._build_level()
+
+    def restart(self) -> None:
+        """Resets the engine to a fresh game at level 1."""
+        self.level = 1
+        self.score = 0
+        self.lives = self.config.lives
+        self.level_timer = 90.0
+        self.bonus_life_awarded = False
+        self._build_level(seed=self.config.seed)
+        self.respawn_pause_timer = PAC_START_PAUSE
