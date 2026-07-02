@@ -29,3 +29,27 @@ This document tracks the explicit design decisions made during development.
 ## 7. Polymorphic Item Consumption Architecture
 * **Choice:** Abstract Base Class (`Consumable`) using template method hooks (`on_consume`).
 * **Rationale:** Decouples the engine's movement grid from specific item logic. By allowing objects like `Pacgum` and `SuperPacgum` to define their own execution behavior when eaten, the engine can blindly trigger `.on_consume(self)` without running clumsy type-checking conditionals (`isinstance`) across different collectible variants.
+
+## 8. Scene-Based State Machine
+* **Choice:** Implementing a polymorphic `Scene` hierarchy for game state management.
+* **Rationale:** Avoids creating a monolithic, unreadable main loop filled with `if/else` flags for menus, gameplay, and pause states. It allows each discrete visual state to autonomously handle its own events, updates, and memory cleanup (`on_exit`).
+
+## 9. Strict Decoupling (Logic vs. Rendering)
+* **Choice:** Isolating mathematical grid simulation (`PacmanEngine`) completely from visual presentation (`GameRenderer`).
+* **Rationale:** The engine only knows about integers, floats, and pure data arrays, while the renderer only handles Pygame surfaces and pixel interpolation. This separation of concerns allows dynamic, real-time graphical theme swapping without risking interference with collision math or game physics.
+
+## 10. UI Overlay Snapshotting
+* **Choice:** Capturing a frozen `pygame.Surface` snapshot for `OverlayScene` menus (Pause, Options, Instructions).
+* **Rationale:** Instead of constantly re-rendering the hundreds of maze assets and characters live in the background while the game is paused, capturing a single static image and applying a translucent dimming layer saves massive amounts of CPU/GPU overhead and cleanly handles nested menu trees.
+
+## 11. Polymorphic Entity AI 
+* **Choice:** Utilizing inheritance for autonomous enemies (`Blinky`, `Pinky`, `Inky`, `Clyde` inheriting from a base `Ghost` class).
+* **Rationale:** Respects the Open-Closed Principle (SOLID). Instead of writing a massive update loop filled with `if ghost.type == "blinky"` checks, the engine simply calls `.get_chase_target()`. Each subclass handles its own unique targeting algorithm, making it trivial to extend or alter AI behavior later.
+
+## 12. Centralized Audio Pipeline
+* **Choice:** Implementing a globally persistent `AudioManager` initialized at the root `Game` class level.
+* **Rationale:** Prevents audio context loss during state transitions. Rather than individual scenes loading and abandoning sound files, the global manager allows music to smoothly persist across menus and levels, guarantees no overlapping track duplications, and provides a centralized endpoint for real-time volume configurations.
+
+## 13. Encapsulated Animation Pacing
+* **Choice:** Abstracting frame timing and modulo indexing into standalone `Animator` instances.
+* **Rationale:** Protects the renderer from `IndexError` crashes during dynamic asset hotswapping. By embedding the modulo safety clamping directly into an `Animator` object, swapping from a theme with 4 frames to a theme with 1 frame automatically wraps the current index into a legal boundary, preserving structural stability.
