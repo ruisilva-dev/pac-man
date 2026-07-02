@@ -113,7 +113,7 @@ class Player:
                 engine.items[item_row][item_col] = None
 
         if self.move_progress >= 1.0:
-            self.move_progress -= 1.0
+            self.move_progress = 0.0
 
             # Transfer data records cleanly to the next destination cell
             self.col += dc
