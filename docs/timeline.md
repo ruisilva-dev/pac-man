@@ -36,5 +36,7 @@
 | 🟢 | Implement automatic theme progression | ruisilva | 17/06/2026 | 17/06/2026 | Programmed the engine and renderer to synchronize and automatically advance the visual layout every two levels by default (manual theme overrides remain fully available). |
 | 🟢 | Complete Desert and World Cup themes | luida-cu | 17/06/2026 | 17/06/2026 | Sliced and integrated the final sprite sheet assets and folder architectures for the remaining visual themes. |
 | 🟢 | Add level advancement transition overlay | ruisilva | 17/06/2026 | 17/06/2026 | Implemented a frozen-state 'Level Cleared' banner inside GameScene requiring explicit user confirmation to advance, preventing accidental movement inputs on level spawn. |
+| 🟢 | Overhaul UI and integrate global audio | Both | 01/07/2026 | 01/07/2026 | Implemented AudioManager for music/SFX, added visual volume sliders, unified post-game leaderboard scenes, and polished overlay transitions. |
+| 🟢 | Refactor entities and animation pipeline | Both | 02/07/2026 | 02/07/2026 | Decoupled Player class, added Animator utilities to prevent theme-swap crashes, added cheat HUD icons, and implemented authentic 10k extra-life and pellet generation. |
 
 *Status Legend: ⚪ Not Started | 🟡 In Progress | 🟢 Completed*
