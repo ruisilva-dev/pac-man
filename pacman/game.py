@@ -4,6 +4,7 @@ from pacman.config import Configuration
 from pacman.render.loader import AssetLoader
 from pacman.highscores import HighscoreManager
 from pacman.constants import FPS, ARCADE_W, ARCADE_H, BG_COLOR
+from pacman.audio import AudioManager
 
 
 if TYPE_CHECKING:
@@ -22,6 +23,7 @@ class Game:
     Attributes:
         config: The loaded game configuration.
         loader: Shared asset loader with per-theme caching.
+        audio: Audio manager handling music and shared sound effects.
         theme_overridden: Flag tracking if manual theme selection occurred.
         highscores: Shared leaderboard manager.
         window: The real window surface sized from configuration.
@@ -50,6 +52,9 @@ class Game:
 
         self.loader: AssetLoader = AssetLoader()
 
+        self.audio: AudioManager = AudioManager()
+        self.audio.set_theme(config.theme)
+
         self.theme_overridden: bool = False
 
         self.highscores: HighscoreManager = HighscoreManager(
@@ -73,6 +78,7 @@ class Game:
         Args:
             scene: The scene to make active.
         """
+        self.scene.on_exit()
         self.scene = scene
 
     def _present(self) -> None:

@@ -21,11 +21,22 @@ PAC_ANIM_FRAMES: int = 3
 PAC_DEATH_ANIM_SPEED: float = 6.0
 PAC_DEATH_FRAMES: int = 8
 PAC_RESPAWN_PAUSE: float = 1.0
+PAC_START_PAUSE: float = 4.5
+START_PAUSE_BY_THEME: dict[str, float] = {
+    "classic": 4.8,
+    "japan": 4.2,
+    "hawaii": 4.2,
+    "desert": 4.2,
+    "worldcup": 4.3,
+}
 SUPERPACGUM_ANIM_FPS: int = 12
 SUPERPACGUM_ANIM_INTERVAL: float = 1.0
 GHOST_ANIM_FPS: int = 12
 # Input buffer tracking expiration window
 PAC_INPUT_BUFFER: float = 0.4
+
+# Score required to earn a single bonus life
+EXTRA_LIFE_SCORE: int = 10000
 
 # Inversion map to calculate sharp velocity direction switches
 OPPOSITE_DIR: dict[str, str] = {

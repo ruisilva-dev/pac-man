@@ -54,3 +54,7 @@ class Scene(ABC):
             target: The arcade surface to draw onto.
         """
         ...
+
+    def on_exit(self) -> None:
+        """Called when this scene is replaced. Override to clean up."""
+        self.game.audio.stop_all_sfx()
