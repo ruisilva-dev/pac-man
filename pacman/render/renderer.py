@@ -1,4 +1,5 @@
 import pygame
+import os
 from pacman.engine import PacmanEngine
 from pacman.render.loader import AssetLoader, ThemeAssets
 from pacman.render.animator import Animator
@@ -96,13 +97,13 @@ class GameRenderer:
         self.background_surface: pygame.Surface
         self.set_theme(theme)
         self.img_freeze: pygame.Surface = self.loader.load_ui_icon(
-            "pacman/assets/textures/freeze.png"
+            os.path.join(self.loader.global_root, "freeze.png")
         )
         self.img_imortal: pygame.Surface = self.loader.load_ui_icon(
-            "pacman/assets/textures/imortal.png"
+            os.path.join(self.loader.global_root, "imortal.png")
         )
         self.img_speed: pygame.Surface = self.loader.load_ui_icon(
-            "pacman/assets/textures/speed.png"
+            os.path.join(self.loader.global_root, "speed.png")
         )
 
     def set_theme(self, theme: str) -> None:

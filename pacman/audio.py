@@ -16,13 +16,15 @@ class AudioManager:
         sfx_cache: Storage tracking preloaded dynamic sound effect buffers.
     """
 
-    def __init__(self, audio_root: str = "pacman/assets/audio") -> None:
+    def __init__(self, base_path: str) -> None:
         """Initializes the mixer subsystem and prepares tracking markers.
 
         Args:
             audio_root: File system parent pathway mapping audio files.
         """
-        self.audio_root: str = audio_root
+        self.audio_root: str = os.path.join(
+            base_path, "pacman", "assets", "audio"
+        )
         self.current_theme: str = "classic"
         self.current_music: str | None = None
         self.sfx_cache: dict[str, pygame.mixer.Sound] = {}

@@ -1,4 +1,5 @@
 import pygame
+import os
 from dataclasses import dataclass
 from pacman.constants import (
     SPRITE_SIZE,
@@ -46,17 +47,21 @@ class AssetLoader:
 
     Attributes:
         themes_root: Base directory holding all theme folders.
+        global_root: Base directory holding menu screen banner and icons.
     """
 
-    def __init__(
-        self, themes_root: str = "pacman/render/themes"
-    ) -> None:
+    def __init__(self, base_path: str) -> None:
         """Initializes the loader with an empty theme cache.
 
         Args:
-            themes_root: Root path containing one folder per theme.
+            base_path: Root path for the application.
         """
-        self.themes_root: str = themes_root
+        self.themes_root: str = os.path.join(
+            base_path, "pacman", "assets", "textures", "themes"
+        )
+        self.global_root: str = os.path.join(
+            base_path, "pacman", "assets", "textures", "global"
+        )
         self._cache: dict[str, ThemeAssets] = {}
         self._ui_cache: dict[str, pygame.Surface] = {}
 

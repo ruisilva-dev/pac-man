@@ -39,11 +39,12 @@ class MenuScene(Scene):
         self.item_font: pygame.font.Font = pygame.font.SysFont(
             "monospace", 40, bold=True
         )
-        banner_path = os.path.join("pacman", "assets",
-                                   "textures", "banner.png")
+        banner_path = os.path.join(self.game.loader.global_root, "banner.png")
+
         self.banner: pygame.Surface | None = None
         if os.path.exists(banner_path):
             self.banner = pygame.image.load(banner_path).convert_alpha()
+
         self.game.audio.play_music("menu_loop.wav", is_global=True)
 
     def handle_event(self, event: pygame.event.Event) -> None:
