@@ -33,7 +33,9 @@ class Game:
         scene: The currently active scene.
     """
 
-    def __init__(self, config: Configuration, config_path: str) -> None:
+    def __init__(
+        self, config: Configuration, config_path: str, base_path: str
+    ) -> None:
         """Initializes shared resources and starts at the menu.
 
         Args:
@@ -50,9 +52,9 @@ class Game:
         )
         pygame.display.set_caption("Pac-Man")
 
-        self.loader: AssetLoader = AssetLoader()
+        self.loader: AssetLoader = AssetLoader(base_path)
 
-        self.audio: AudioManager = AudioManager()
+        self.audio: AudioManager = AudioManager(base_path)
         self.audio.set_theme(config.theme)
 
         self.theme_overridden: bool = False
