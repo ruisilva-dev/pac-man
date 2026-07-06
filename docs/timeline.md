@@ -38,5 +38,9 @@
 | 🟢 | Add level advancement transition overlay | ruisilva | 17/06/2026 | 17/06/2026 | Implemented a frozen-state 'Level Cleared' banner inside GameScene requiring explicit user confirmation to advance, preventing accidental movement inputs on level spawn. |
 | 🟢 | Overhaul UI and integrate global audio | Both | 01/07/2026 | 01/07/2026 | Implemented AudioManager for music/SFX, added visual volume sliders, unified post-game leaderboard scenes, and polished overlay transitions. |
 | 🟢 | Refactor entities and animation pipeline | Both | 02/07/2026 | 02/07/2026 | Decoupled Player class, added Animator utilities to prevent theme-swap crashes, added cheat HUD icons, and implemented authentic 10k extra-life and pellet generation. |
+| 🟢 | Reorganize project assets to centralized repository folder | luida-cu | 02/07/2026 | 02/07/2026 | Migrated all raw textures, banners, and audio files into a unified `pacman/assets/` directory and refactored the codebase to use standard relative asset paths. |
+| 🟢 | Integrate standalone binary compilation script | ruisilva | 04/07/2026 | 04/07/2026 | Developed an automated `packaging.sh` script to cleanly purge old builds, handle missing configurations via a self-healing fallback string, trigger PyInstaller compilation vectors, and append mandatory in-package instructions. |
+| 🟢 | Enforce absolute frozen path resolution constraints | Both | 06/07/2026 | 06/07/2026 | Collaborated to finalize `pac-man.py`. Refactored `AssetLoader` and `AudioManager` to handle execution contexts deterministically—anchoring internal resource maps to PyInstaller bundle directories via `base_path` while using `sys.executable` for external config hooks. |
+| 🟢 | Add README | ruisilva | 06/07/2026 | 06/07/2026 | Add `README.md` to cleanly encapsulate user instructions, configuration keys, custom comment stripping architecture, highscore logic, and project management outcomes. |
 
 *Status Legend: ⚪ Not Started | 🟡 In Progress | 🟢 Completed*
