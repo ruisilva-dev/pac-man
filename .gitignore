@@ -6,6 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+# PyInstaller spec file
+*.spec
+
 # mypy cache
 .mypy_cache
 
